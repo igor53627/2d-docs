@@ -46,6 +46,13 @@ export default defineConfig({
 							},
 							slug: 'architecture/addresses',
 						},
+						{
+							label: 'Precompiles (no EVM)',
+							translations: {
+								ru: 'Precompile-ы (без EVM)',
+							},
+							slug: 'architecture/precompiles',
+						},
 					],
 				},
 			],
