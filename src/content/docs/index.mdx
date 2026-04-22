@@ -1,0 +1,36 @@
+---
+title: 2D
+description: Documentation for the 2D chain — a Tron- and Ethereum-compatible, USDC-native L1.
+template: splash
+hero:
+  tagline: A USDC-native L1 that speaks both Ethereum and Tron on the same account state.
+  actions:
+    - text: Tron & Ethereum addresses
+      link: /2d-docs/architecture/addresses/
+      icon: right-arrow
+    - text: Source on GitHub
+      link: https://github.com/igor53627/2d
+      icon: external
+      variant: minimal
+---
+
+import { Card, CardGrid } from '@astrojs/starlight/components';
+
+## What is 2D?
+
+2D is a Layer-1 chain whose account model is USDC by default. It exposes both surfaces that real wallets use today:
+
+- **Ethereum JSON-RPC** (`eth_*`) on `/` — for MetaMask, ethers.js, viem, etc.
+- **Tron wallet HTTP API** (`/wallet/*`) — for TronLink, TronWeb.
+
+Both surfaces operate on the **same underlying accounts**, so a transfer sent via TronLink is visible to `eth_getTransactionByHash` moments later.
+
+## Articles
+
+<CardGrid>
+	<Card title="Tron & Ethereum addresses" icon="random">
+		Why 2D accepts `T…`, `0x41…`, `41…`, *and* `0x…` as the same account — and how the chain keeps both encodings honest.
+
+		[Read →](/2d-docs/architecture/addresses/)
+	</Card>
+</CardGrid>
