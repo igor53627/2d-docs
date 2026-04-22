@@ -3,9 +3,11 @@ title: Tron & Ethereum addresses in 2D
 description: One 20-byte account, two encoding lineages — how 2D makes TronLink and MetaMask see the same balance.
 ---
 
-When you first open TronLink against a 2D node and hit `/wallet/getaccount`, the response has a `T…` string. Query the same balance via MetaMask at `eth_getBalance`, and you get a `0x…` hex address back. These are **the same account** — not translated, not mirrored. They are the two on-wire encodings of one 20-byte primary key that the chain stores once.
+An Ethereum address looks like `0xf39Fd6…`. A Tron address looks like `TR7NHq…`. Different alphabets, different checksums, different ecosystems — on sight they feel like two unrelated things.
 
-This article walks through why both encodings exist, what they share, what they don't, and where in `lib/chain/` the bridging happens.
+They aren't. Underneath both strings is the **same 20-byte account**, derived the same way from a secp256k1 public key. Everything else — the `0x` or `T` prefix, the case pattern, the Base58 alphabet — lives in the encoding layer wrapping those 20 bytes on the way out.
+
+2D is a chain that stores accounts in that shared 20-byte form and renders them in either dialect on demand. A transfer sent from TronLink lands in the same account MetaMask reads through `eth_getBalance`. This article walks through it in order: how the 20-byte address is derived, the two encoding schemes (EIP-55 checksummed hex and Base58Check), and where in `lib/chain/` the chain figures out which form it was handed.
 
 ## The shared foundation
 
