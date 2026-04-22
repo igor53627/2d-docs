@@ -9,7 +9,7 @@ description: Один 20-байтный аккаунт, две линии код
 
 ## Общий фундамент
 
-И Ethereum, и Tron выводят адрес аккаунта из **открытого ключа secp256k1**:
+И в Ethereum, и в Tron адрес аккаунта получается из **открытого ключа secp256k1**:
 
 ```
 account = keccak256(uncompressed_pubkey_without_prefix)[-20..]
@@ -26,7 +26,7 @@ account = keccak256(uncompressed_pubkey_without_prefix)[-20..]
 - Внешний вид: `0x` + 40 hex-символов.
 - [EIP-55](https://eips.ethereum.org/EIPS/eip-55) использует **регистр** каждого hex-символа как один бит чек-суммы: если соответствующий ниббл в `keccak256(lowercase_hex)` ≥ 8, символ поднимается в заглавный.
 
-Больше в формате ничего нет. Ни байта версии, ни отдельных байт чек-суммы. Проверка одна: длина 42, смешанный регистр, и рисунок регистра совпадает с `keccak256(lowercase)`. См. [`Chain.Crypto.encode_address/1`](https://github.com/igor53627/2d/blob/c68ddb7/lib/chain/crypto.ex#L323-L340):
+Больше в формате ничего нет. Ни байта версии, ни отдельных байт чек-суммы. Проверка одна: длина 42, смешанный регистр, и чередование заглавных и строчных совпадает с `keccak256(lowercase)`. См. [`Chain.Crypto.encode_address/1`](https://github.com/igor53627/2d/blob/c68ddb7/lib/chain/crypto.ex#L323-L340):
 
 ```elixir
 def encode_address(<<address::binary-20>>) do
@@ -51,7 +51,7 @@ end
 
 Tron унаследовал формат **Base58Check от Bitcoin** и добавил свой byte-prefix:
 
-1. К 20-байтному payload слева приписывается **байт версии `0x41`** — аналог биткойновского `0x00` для mainnet Tron. Получается 21 байт: `0x41 || addr`.
+1. К 20-байтному payload слева приписывается **байт версии `0x41`** — метка mainnet Tron (в Bitcoin в этой же позиции стоит `0x00`). Получается 21 байт: `0x41 || addr`.
 2. Считается **4-байтная чек-сумма**: `sha256(sha256(payload))[:4]`. Именно *двойной* SHA-256, как в Bitcoin.
 3. Итоговая строка `payload || checksum` длиной 25 байт **кодируется в Base58**.
 
@@ -69,7 +69,7 @@ end
 
 Проверка ([`validate_check/1`](https://github.com/igor53627/2d/blob/c68ddb7/lib/chain/tron/address.ex#L48-L64)) идёт обратным путём: раскодировать Base58 → отсечь чек-сумму → пересчитать двойной SHA-256 по payload → сравнить 4 байта.
 
-### Две чек-суммы бок о бок
+### Сравнение чек-сумм
 
 | | Ethereum (EIP-55) | Tron (Base58Check) |
 |---|---|---|
@@ -120,7 +120,7 @@ end
 
 Ветка «префикс `0x` + длина 42» отсекает Ethereum-адреса сразу на входе. Всё остальное — `T…`, `41…`, `0x41…` — уходит в [`Chain.Tron.Address.decode/1`](https://github.com/igor53627/2d/blob/c68ddb7/lib/chain/tron/address.ex#L15-L35), который единообразно разбирает три оставшиеся формы Tron.
 
-## Один ключ, два мира
+## Один ключ, две экосистемы
 
 ```
                        приватный ключ secp256k1
