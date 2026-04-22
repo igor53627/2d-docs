@@ -11,6 +11,17 @@ export default defineConfig({
 			title: '2D docs',
 			description:
 				'Documentation for the 2D chain — a Tron- and Ethereum-compatible, USDC-native L1.',
+			defaultLocale: 'root',
+			locales: {
+				root: {
+					label: 'English',
+					lang: 'en',
+				},
+				ru: {
+					label: 'Русский',
+					lang: 'ru',
+				},
+			},
 			social: [
 				{
 					icon: 'github',
@@ -24,9 +35,15 @@ export default defineConfig({
 			sidebar: [
 				{
 					label: 'Architecture',
+					translations: {
+						ru: 'Архитектура',
+					},
 					items: [
 						{
 							label: 'Tron & Ethereum addresses',
+							translations: {
+								ru: 'Адреса Tron и Ethereum',
+							},
 							slug: 'architecture/addresses',
 						},
 					],
