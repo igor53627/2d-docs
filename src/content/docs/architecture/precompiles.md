@@ -199,7 +199,7 @@ What you get in return:
 
 - **Every on-chain code path is Elixir you can read and check.** Typed, testable, runnable in a REPL, bounded by the module's file size.
 - **No gas-metering complexity.** Gas metering exists to stop untrusted code from running forever. Precompile code is trusted and doesn't need a per-opcode meter. The chain's gas model can therefore be dramatically simpler, with no opcode-level accounting, because there are no adversarial opcodes.
-- **Zero VM attack surface.** No EVM bugs, no bytecode exploits, no subtle opcode-interaction oracles. The attack surface is the handful of precompile modules plus the BEAM itself. A dramatic reduction.
+- **Zero VM attack surface.** No EVM bugs, no bytecode exploits, no subtle side-channels between opcodes. The attack surface is the handful of precompile modules plus the BEAM itself. A dramatic reduction.
 
 ## Safety posture
 
@@ -210,10 +210,8 @@ A closed, auditable precompile set opens doors in code verification that are gen
 - **Tier 2 (concurrency).** Concuerror walks every possible interleaving of ETS reads and writes across the registry, the handler, and the block producer. It catches races and deadlocks that ordinary tests miss.
 - **Tier 3 (protocol).** TLA+ specs (generatable to runnable Erlang via Erla+) for precompiles whose correctness is a multi-step protocol rather than a single function. HTLC's "completed XOR rolled back, never partial" is the canonical target.
 
-Each tier costs more and guards more than the one before. A dedicated verification article will follow once there is a real precompile to verify. Abstract proofs of nothing help no one.
+Each tier costs more and guards more than the one before. The point is to build the stack gradually, as real precompiles land, rather than up front.
 
 ## Where this is going
 
 The first precompile with real state is queued for implementation. The HTLC sketched above. Alongside it, the verification stack will come up in layers. Dialyzer and types in CI today. PropCheck properties the day a stateful handler lands. TLA+ specs for HTLC and any subsequent precompile whose correctness is a protocol rather than a single function.
-
-A dedicated verification article will follow once there is code on the table and a full stack of proofs to walk through. Not before.
