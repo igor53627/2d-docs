@@ -1,14 +1,14 @@
 ---
 title: 2D
-description: Документация к сети 2D — Tron- и Ethereum-совместимая L1 с USDC в качестве родного актива.
+description: Документация к 2D — Tron- и Ethereum-совместимой L1-сети, где базовый актив аккаунта — USDC.
 template: splash
 hero:
-  tagline: USDC-native L1, которая говорит одновременно на языках Ethereum и Tron поверх одного и того же состояния аккаунтов.
+  tagline: USDC-native L1-сеть, одновременно разговаривающая на Ethereum и Tron поверх одного состояния аккаунтов.
   actions:
     - text: Адреса Tron и Ethereum
       link: /2d-docs/ru/architecture/addresses/
       icon: right-arrow
-    - text: Исходный код на GitHub
+    - text: Исходники на GitHub
       link: https://github.com/igor53627/2d
       icon: external
       variant: minimal
@@ -18,18 +18,18 @@ import { Card, CardGrid } from '@astrojs/starlight/components';
 
 ## Что такое 2D?
 
-2D — это блокчейн Layer-1, в котором USDC является базовой денежной единицей аккаунтов по умолчанию. Сеть предоставляет обе поверхности, которыми пользуются реальные кошельки сегодня:
+2D — это L1-сеть, в которой USDC — базовый актив аккаунта по умолчанию. Наружу она отдаёт две поверхности, к которым кошельки уже умеют ходить:
 
-- **Ethereum JSON-RPC** (`eth_*`) на `/` — для MetaMask, ethers.js, viem и т. п.
-- **Tron wallet HTTP API** (`/wallet/*`) — для TronLink, TronWeb.
+- **Ethereum JSON-RPC** (`eth_*`) на `/` — для MetaMask, ethers.js, viem и прочих.
+- **Tron wallet HTTP API** (`/wallet/*`) — для TronLink и TronWeb.
 
-Обе поверхности работают над **одним и тем же набором аккаунтов**, поэтому перевод, отправленный через TronLink, моментально виден запросу `eth_getTransactionByHash`.
+Обе работают поверх **одного и того же набора аккаунтов**. Перевод, отправленный из TronLink, через долю секунды виден запросу `eth_getTransactionByHash`.
 
 ## Статьи
 
 <CardGrid>
 	<Card title="Адреса Tron и Ethereum" icon="random">
-		Почему 2D принимает `T…`, `0x41…`, `41…` *и* `0x…` как один и тот же аккаунт — и как сеть держит оба формата согласованными.
+		Почему 2D принимает `T…`, `0x41…`, `41…` *и* `0x…` как один и тот же аккаунт, и как сеть держит оба представления согласованными.
 
 		[Читать →](/2d-docs/ru/architecture/addresses/)
 	</Card>
