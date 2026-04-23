@@ -58,6 +58,30 @@ Today, the state root is computed and stored. In a future phase, an independent 
 
 The verifier runs a separate process with its own database. It has no direct access to the producer's storage. Users connect to the verifier's RPC, not the producer's. Multiple verifiers can run independently. Anyone can run one.
 
+## How blocks and transactions travel between nodes
+
+The producer and verifier are two BEAM (Erlang VM) nodes connected via Erlang distribution. All data flows over a single encrypted channel. No HTTP, no external message queues.
+
+**Blocks (producer to verifiers):** after each block's database transaction commits, the producer emits a block event through a GenStage pipeline. GenStage is an Elixir library for backpressure-aware producer-consumer flows. Every subscribed verifier receives every block (broadcast fan-out, not round-robin). If a verifier falls behind or disconnects, the producer buffers up to 1000 blocks; older ones are dropped, and the verifier catches up from its last known block on reconnect.
+
+The block event carries the header (number, hash, parent hash, timestamp, state root, transactions root) plus the raw signed transactions in execution order. For Ethereum-format transactions, the raw bytes contain the signature, so the verifier can recover the sender independently. For Tron protobuf transactions (where signatures are discarded at ingest and only the unsigned protobuf is stored), the sender address is included explicitly.
+
+**Transactions (users to producer):** users submit transactions to the verifier's RPC (the only public-facing endpoint). The verifier forwards each transaction to the producer via a fire-and-forget message over Erlang distribution. The producer writes it to its mempool and picks it up on the next block.
+
+**The producer has no public ports.** It listens only on Erlang distribution (two ports, firewalled to the verifier's IP, TLS encrypted). All user-facing traffic goes through the verifier.
+
+```
+Users/Wallets/Explorer
+        │
+        ▼
+   Verifier node (public RPC)
+        │                  ▲
+   txs (cast)         blocks (GenStage)
+        │                  │
+        ▼                  │
+   Producer node (no public ports)
+```
+
 ## Current approach and future scaling
 
 The current implementation is a sorted-hash: it queries every row from each state table, sorts by primary key, hashes, and concatenates. This is O(n) per block over the full state size, which is fine for a chain with fewer than a million accounts.
