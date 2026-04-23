@@ -53,6 +53,13 @@ export default defineConfig({
 							},
 							slug: 'architecture/precompiles',
 						},
+						{
+							label: 'State roots (no validators)',
+							translations: {
+								ru: 'State roots (без валидаторов)',
+							},
+							slug: 'architecture/state-roots',
+						},
 					],
 				},
 			],
