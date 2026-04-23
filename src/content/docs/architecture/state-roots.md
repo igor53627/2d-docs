@@ -47,22 +47,33 @@ This means changing any account balance, any HTLC status, or any precompile regi
 
 ## What a verifier does with this
 
-Today, the state root is computed and stored. In a future phase, an independent verifier client will use it:
+The chain ships an independent verifier client. For every block, it:
 
-1. Receive the block (header + raw signed transactions) from the producer via an API feed.
-2. Replay the transactions against its own copy of the previous state.
-3. Compute its own state root.
-4. Compare with the producer's claimed root.
-5. If they match: serve the block's state to wallets and RPC clients.
-6. If they don't: reject the block, alert, refuse to serve.
+1. Receives the block (header + raw signed transactions) from the upstream node.
+2. Replays the transactions against its own copy of the previous state.
+3. Computes its own state root.
+4. Compares with the producer's claimed root.
+5. If they match: commits the block and serves the verified state to wallets and RPC clients.
+6. If they don't: rolls back, logs a critical alert, refuses to serve.
 
-The verifier runs a separate process with its own database. It has no direct access to the producer's storage. Users connect to the verifier's RPC, not the producer's. Multiple verifiers can run independently. Anyone can run one.
+The verifier runs as a separate BEAM node with its own database. It has no direct access to the producer's storage. Users connect to the verifier's RPC, not the producer's. Multiple verifiers can run independently. Anyone can run one.
+
+A verifier that commits a block re-broadcasts it on its own block feed. Other verifiers can subscribe to it instead of the producer directly. This means verifiers can form a chain or a tree:
+
+```
+Producer ──▶ Verifier A ──▶ Verifier C
+           ▶ Verifier B ──▶ Verifier D
+```
+
+Each verifier independently verifies every block regardless of where it received it from. The trust model is the same whether the upstream is the producer or another verifier: verify, then serve.
 
 ## How blocks and transactions travel between nodes
 
 The producer and verifier are two BEAM (Erlang VM) nodes connected via Erlang distribution. All data flows over a single encrypted channel. No HTTP, no external message queues.
 
-**Blocks (producer to verifiers):** after each block's database transaction commits, the producer emits a block event through a GenStage pipeline. GenStage is an Elixir library for backpressure-aware producer-consumer flows. Every subscribed verifier receives every block (broadcast fan-out, not round-robin). If a verifier falls behind or disconnects, the producer buffers up to 1000 blocks; older ones are dropped, and the verifier catches up from its last known block on reconnect.
+**Blocks (producer to verifiers):** after each block's database transaction commits, the producer emits a block event through a GenStage pipeline. GenStage is an Elixir library for backpressure-aware producer-consumer flows. Every subscribed verifier receives every block (broadcast fan-out, not round-robin). If a verifier falls behind or disconnects, the producer buffers up to 1000 blocks; older ones are dropped.
+
+When a verifier starts (or reconnects after a gap), it catches up before subscribing to the live feed. It asks the upstream node for its current tip, then fetches blocks in batches from its own last known block, verifying each one. Once caught up, it switches to the live GenStage subscription. The same mechanism works whether the upstream is the producer or another verifier.
 
 The block event carries the header (number, hash, parent hash, timestamp, state root, transactions root) plus the raw signed transactions in execution order. For Ethereum-format transactions, the raw bytes contain the signature, so the verifier can recover the sender independently. For Tron protobuf transactions (where signatures are discarded at ingest and only the unsigned protobuf is stored), the sender address is included explicitly.
 
@@ -74,13 +85,15 @@ The block event carries the header (number, hash, parent hash, timestamp, state 
 Users/Wallets/Explorer
         │
         ▼
-   Verifier node (public RPC)
+   Verifier (public RPC)
         │                  ▲
    txs (cast)         blocks (GenStage)
         │                  │
         ▼                  │
-   Producer node (no public ports)
+   Producer (no public ports)
 ```
+
+Additional verifiers can chain off the first one instead of connecting to the producer directly. Each verifier re-broadcasts verified blocks, so the topology can be a star, a chain, or a tree depending on the deployment.
 
 ## Current approach and future scaling
 
