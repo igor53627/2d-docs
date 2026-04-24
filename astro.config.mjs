@@ -60,6 +60,13 @@ export default defineConfig({
 							},
 							slug: 'architecture/state-roots',
 						},
+						{
+							label: 'Running a verifier',
+							translations: {
+								ru: 'Запуск верификатора',
+							},
+							slug: 'architecture/verifier',
+						},
 					],
 				},
 			],
