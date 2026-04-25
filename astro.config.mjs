@@ -68,6 +68,13 @@ export default defineConfig({
 							slug: 'architecture/gasless',
 						},
 						{
+							label: 'Security model',
+							translations: {
+								ru: 'Модель безопасности',
+							},
+							slug: 'architecture/security',
+						},
+						{
 							label: 'Running a verifier',
 							translations: {
 								ru: 'Запуск верификатора',
