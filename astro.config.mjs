@@ -61,6 +61,13 @@ export default defineConfig({
 							slug: 'architecture/state-roots',
 						},
 						{
+							label: 'Gasless transactions',
+							translations: {
+								ru: 'Бесплатные транзакции',
+							},
+							slug: 'architecture/gasless',
+						},
+						{
 							label: 'Running a verifier',
 							translations: {
 								ru: 'Запуск верификатора',
