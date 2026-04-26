@@ -1,15 +1,19 @@
 ---
 title: 2D
-description: Documentation for the 2D chain — a Tron- and Ethereum-compatible, USDC-native L1.
+description: Documentation for the 2D chain — a Tron- and Ethereum-compatible L1 with a USD-stable base asset, instant finality, and gasless transactions.
 template: splash
 hero:
-  tagline: A USDC-native L1 that speaks both Ethereum and Tron on the same account state.
+  tagline: An L1 that speaks both Ethereum and Tron over the same account state.
   actions:
-    - text: Tron & Ethereum addresses
+    - text: Architecture
       link: architecture/addresses/
       icon: right-arrow
     - text: Source on GitHub
       link: https://github.com/igor53627/2d
+      icon: external
+      variant: minimal
+    - text: Test report
+      link: https://igor53627.github.io/2d-ci/
       icon: external
       variant: minimal
 ---
@@ -18,19 +22,49 @@ import { Card, CardGrid } from '@astrojs/starlight/components';
 
 ## What is 2D?
 
-2D is a Layer-1 chain whose account model is USDC by default. It exposes both surfaces that real wallets use today:
+2D is a Layer-1 chain with a single base asset (a USD-stable) and two wallet surfaces on the same account state:
 
-- **Ethereum JSON-RPC** (`eth_*`) on `/` — for MetaMask, ethers.js, viem, etc.
-- **Tron wallet HTTP API** (`/wallet/*`) — for TronLink, TronWeb.
+- **Ethereum JSON-RPC** (`eth_*`) on `/` for MetaMask, ethers.js, viem.
+- **Tron wallet HTTP API** (`/wallet/*`) for TronLink, TronWeb.
 
-Both surfaces operate on the **same underlying accounts**, so a transfer sent via TronLink is visible to `eth_getTransactionByHash` moments later.
+A transfer sent from TronLink is visible to `eth_getTransactionByHash` moments later, because both APIs read and write the same accounts table. Blocks land with instant finality (no confirmations, no reorgs), and independent verifier nodes replay every one before serving it to wallets.
 
 ## Articles
 
 <CardGrid>
 	<Card title="Tron & Ethereum addresses" icon="random">
-		Why 2D accepts `T…`, `0x41…`, `41…`, *and* `0x…` as the same account — and how the chain keeps both encodings honest.
+		Why 2D treats `T…`, `0x41…`, `41…`, and `0x…` as the same account, and how both encodings stay in sync on the wire.
 
 		[Read →](architecture/addresses/)
+	</Card>
+
+	<Card title="Precompiles, no EVM" icon="puzzle">
+		Custom on-chain logic without a bytecode interpreter. Each "contract" is an Elixir module at a fixed address in the `0x2D00…` namespace.
+
+		[Read →](architecture/precompiles/)
+	</Card>
+
+	<Card title="State roots" icon="approve-check">
+		A cryptographic fingerprint of all mutable state in every block. Any client can replay transactions and independently verify what the producer wrote.
+
+		[Read →](architecture/state-roots/)
+	</Card>
+
+	<Card title="Gasless transactions" icon="rocket">
+		Every transaction is free. Spam is bounded by a sliding-window throttle that only delays high-frequency senders, never rejects them.
+
+		[Read →](architecture/gasless/)
+	</Card>
+
+	<Card title="Security model" icon="warning">
+		The trust boundaries between user, producer, and verifier, and where input validation, replay prevention, and anti-spam plug in.
+
+		[Read →](architecture/security/)
+	</Card>
+
+	<Card title="Running a verifier" icon="magnifier">
+		How to deploy a read-only node that replays every block, serves verified state to wallets, and refuses anything the producer got wrong.
+
+		[Read →](architecture/verifier/)
 	</Card>
 </CardGrid>

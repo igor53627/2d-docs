@@ -10,7 +10,7 @@ export default defineConfig({
 		starlight({
 			title: '2D docs',
 			description:
-				'Documentation for the 2D chain — a Tron- and Ethereum-compatible, USDC-native L1.',
+				'Documentation for the 2D chain: a Tron- and Ethereum-compatible L1 with a USD-stable base asset, instant finality, and gasless transactions.',
 			defaultLocale: 'root',
 			locales: {
 				root: {
