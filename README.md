@@ -1,6 +1,6 @@
 # 2D docs
 
-[![Live](https://img.shields.io/badge/docs-online-blue)](https://igor53627.github.io/2d-docs/) [![Tests](https://img.shields.io/badge/tests-49%20passing-brightgreen)](https://igor53627.github.io/2d-ci/)
+[![Live](https://img.shields.io/badge/docs-online-blue)](https://igor53627.github.io/2d-docs/) [![Tests](https://img.shields.io/badge/tests-51%20passing-brightgreen)](https://igor53627.github.io/2d-ci/)
 
 Public documentation for [2D](https://github.com/igor53627/2d): a Tron- and Ethereum-compatible L1 with a USD-stable base asset, instant finality, and gasless transactions.
 
