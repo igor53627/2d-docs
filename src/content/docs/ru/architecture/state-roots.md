@@ -9,22 +9,24 @@ State roots это исправляют. После каждого блока pr
 
 ## Что входит в state root
 
-Три таблицы из state-схемы, отсортированные по первичному ключу. Каждая строка хешируется через keccak256, результаты объединяются:
+Четыре таблицы из state-схемы, отсортированные по первичному ключу. Каждая строка хешируется через keccak256, результаты объединяются:
 
-- **accounts** (address, balance, nonce). Каждый аккаунт, когда-либо получавший USDC.
+- **accounts** (address, balance, nonce). Каждый аккаунт, когда-либо получавший USD-stable.
 - **htlc_swaps** (hash, sender, receiver, amount, deadline, status, preimage). Каждый активный или завершённый атомарный своп.
 - **precompiles** (address, name, handler, enabled). Набор зарегистрированных precompile-контрактов.
+- **bridge_mints** (eth_event_id, исходная тройка, amount, координаты блока). По одной строке на каждый Ethereum `Locked` event, под который оператор сделал refill. Включение строго обязательно: без него dedup-инвариант жил бы только в самой таблице, и producer мог бы дважды заминтить под один и тот же event, всё равно сойдясь по replay с честным верификатором. Cross-chain check, который перепроверяет каждую строку, описан в [статье про bridge](/architecture/bridge/).
 
 `blocks_tip` (singleton, кеш текущего указателя на голову) намеренно исключён. Это кеш для быстрого доступа, не консенсусное состояние. Его включение создало бы циклическую зависимость: state root надо вычислять до обновления tip, но обновление tip происходит в той же транзакции.
 
 Сам root:
 
 ```
-accounts_root    = keccak256( row_hash(account_1) || row_hash(account_2) || ... )
-htlc_root        = keccak256( row_hash(swap_1) || row_hash(swap_2) || ... )
-precompiles_root = keccak256( row_hash(precompile_1) || ... )
+accounts_root     = keccak256( row_hash(account_1) || row_hash(account_2) || ... )
+htlc_root         = keccak256( row_hash(swap_1) || row_hash(swap_2) || ... )
+precompiles_root  = keccak256( row_hash(precompile_1) || ... )
+bridge_mints_root = keccak256( row_hash(mint_1) || ... )
 
-state_root       = keccak256( accounts_root || htlc_root || precompiles_root )
+state_root        = keccak256( accounts_root || htlc_root || precompiles_root || bridge_mints_root )
 ```
 
 Каждый row hash кодирует поля в каноническом бинарном формате (целые числа фиксированной ширины, строки с длиной-префиксом, нормализованные Decimal). Два арифметически равных баланса всегда дают одинаковые байты, независимо от того, как Decimal был внутренне сконструирован.
@@ -103,4 +105,4 @@ Producer и verifier это два BEAM-узла (Erlang VM), соединённ
 
 ## Почему это важно для cross-chain мостов
 
-Когда 2D добавит bridge minter, который создаёт 2D USD под USDT, залоченные на Tron, верификатор сможет расширить проверки: для каждого mint-event на 2D запросить Tron через RPC и проверить, существует ли HTLC lock с таким же hash и amount. Необеспеченный минт (оператор минтит без реального USDT-залога) становится детектируемым каждым верификатором, а не только через доверие оператору. State roots делают это возможным, давая каждому клиенту верифицируемую картину того, что реально произошло on-chain.
+Первый реальный потребитель этого свойства — [bridge](/architecture/bridge/). На каждый refill, который сабмитит оператор, верификатор независимо запрашивает указанный Ethereum-event через локальный helios-сайдкар и отклоняет блок, если что-то не сходится. State roots делают это возможным: они дают каждому клиенту верифицируемую картину того, что реально произошло on-chain. Строка `bridge_mints` со своей исходной тройкой, dedup-id и amount хешируется в цепь, и скомпрометированный producer не может тихо переписать её задним числом.

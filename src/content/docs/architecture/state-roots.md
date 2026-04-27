@@ -9,22 +9,24 @@ State roots fix this. After every block, the producer computes a cryptographic f
 
 ## What goes into the state root
 
-Three tables from the state schema, sorted by primary key, each row hashed with keccak256, then combined:
+Four tables from the state schema, sorted by primary key, each row hashed with keccak256, then combined:
 
-- **accounts** (address, balance, nonce). Every account that has ever received USDC.
+- **accounts** (address, balance, nonce). Every account that has ever received USD-stable.
 - **htlc_swaps** (hash, sender, receiver, amount, deadline, status, preimage). Every active or terminal atomic-swap lock.
 - **precompiles** (address, name, handler, enabled). The set of registered precompile contracts.
+- **bridge_mints** (eth_event_id, source triple, amount, applied block coordinates). One row per Ethereum `Locked` event the operator has refilled against. Inclusion is load-bearing: without it the dedup invariant would live only inside the table, and a producer could double-mint while still matching an honest verifier's replay. See the [bridge article](/architecture/bridge/) for the cross-chain check that re-validates each row.
 
 `blocks_tip` (the singleton that caches the current head pointer) is deliberately excluded. It is a convenience cache, not consensus state. Including it would create a circular dependency: the state root must be computed before the tip is updated, but the tip update happens in the same transaction.
 
 The root itself:
 
 ```
-accounts_root  = keccak256( row_hash(account_1) || row_hash(account_2) || ... )
-htlc_root      = keccak256( row_hash(swap_1) || row_hash(swap_2) || ... )
-precompiles_root = keccak256( row_hash(precompile_1) || ... )
+accounts_root     = keccak256( row_hash(account_1) || row_hash(account_2) || ... )
+htlc_root         = keccak256( row_hash(swap_1) || row_hash(swap_2) || ... )
+precompiles_root  = keccak256( row_hash(precompile_1) || ... )
+bridge_mints_root = keccak256( row_hash(mint_1) || ... )
 
-state_root     = keccak256( accounts_root || htlc_root || precompiles_root )
+state_root        = keccak256( accounts_root || htlc_root || precompiles_root || bridge_mints_root )
 ```
 
 Each row hash encodes fields in a canonical binary layout (fixed-width integers, length-prefixed strings, normalized Decimals). Two arithmetically-equal balances always produce the same bytes, regardless of how the Decimal was constructed internally.
@@ -103,4 +105,4 @@ When the state grows, the plan is to migrate to an incremental Merkle tree that 
 
 ## Why this matters for cross-chain bridges
 
-When 2D adds a bridge minter that creates 2D USD against USDT locked on Tron, the verifier can extend its checks: for every mint event on 2D, query Tron via RPC and verify that a matching HTLC lock exists with the same hash and amount. An unbacked mint (operator mints without real USDT backing) becomes detectable by every verifier, not just by trusting the operator. State roots make this possible by giving every client a verifiable view of what actually happened on-chain.
+The first concrete consumer of this property is the [bridge](/architecture/bridge/). For every refill the operator submits, the verifier independently queries the cited Ethereum event through a local helios sidecar and rejects the block if anything fails to match. State roots make this possible by giving every client a verifiable view of what actually landed on-chain: the `bridge_mints` row, with its source triple, dedup id, and amount, is hashed into the chain and cannot be quietly rewritten by a compromised producer.

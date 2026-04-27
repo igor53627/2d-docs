@@ -1,0 +1,150 @@
+---
+title: Bridge — HTLC settlement and per-event refill
+description: How 2D moves USD-stable across chains without a wrapped-bridge custody contract, an operator unlock authority, or a pre-mint trust seed. Preimage-locked settlement plus a verifier that re-checks every refill against finalized Ethereum state.
+---
+
+Bridges are the largest single class of crypto theft. **Over $2.8B has been stolen from cross-chain bridges since 2020, roughly 40% of all Web3 theft volume** ([Chainalysis / industry summary](https://www.certik.com/resources/blog/GuBAYoHdhrS1mK9Nyfyto-cross-chain-vulnerabilities-and-bridge-exploits-in-2022)). 2026 alone logged **over $750M in bridge losses in under four months** ([Phemex DeFi hacks 2026](https://phemex.com/blogs/defi-hacks-2026-bridge-exploits-explained)). The pattern in every catastrophic failure is the same: a custody contract holds locked tokens on chain A, a federation of validators observes the lock and signs an unlock-or-mint on chain B, and a single signature compromise drains the entire pool.
+
+2D's bridge is built so that pattern cannot recur. There is no `unlock()` authority anywhere; settlement is preimage-locked HTLC on both sides. There is no pre-mint trust seed; supply on the 2D side starts at zero and grows one event at a time, each one independently re-checked against finalized Ethereum state. The operator's only role is matchmaker: lock something, lock the matching something on the other side, hand the user the preimage when the user shows up.
+
+This article walks through the design choice (why HTLC over lock-mint), the refill-mint mechanics (how supply tracks Ethereum events 1:1), the cross-chain check (what the verifier independently confirms), and the trust model that falls out.
+
+## Why not lock-mint
+
+The default architecture for a bridge is **lock-mint**. Alice sends USDC to a custody contract on chain A. A federation of validators observes the lock event and signs a `mint(Alice, amount)` call on chain B's wrapped-token contract. The wrapped tokens travel; eventually someone redeems them, the bridge does the symmetric `burn`, and a corresponding `unlock()` call on chain A releases the original USDC.
+
+The structural problem: that final `unlock()` is unconditional from the chain's perspective. Whoever holds the right keys (validator threshold, multisig, oracle quorum) can call `unlock()` for any amount up to the bridge's TVL at any time. Phish enough keys, the entire pool walks out.
+
+The catastrophic failures read as a who's-who of unlock-authority compromise:
+
+- **Wormhole** (2022, ~$320M). A misused Solana helper accepted a forged guardian signature, minting wETH out of thin air.
+- **Ronin** (2022, ~$620M). Five of nine validator keys were phished; the attacker approved two large withdrawals.
+- **Nomad** (2022, ~$190M). An upgrade accidentally bypassed a check, turning the unlock path into a free-for-all.
+- **Poly Network** (2021, ~$611M). The cross-chain manager's `lock` function could be tricked into calling unlock on arbitrary amounts.
+
+Different surfaces, same primitive: somebody with keys could unlock.
+
+2D replaces lock-mint with **HTLC settlement on both sides**. Alice locks USDC on the Ethereum HTLC contract under a hash `H` and a deadline. The bridge operator locks the equivalent USD-stable on the 2D HTLC under the same hash. Alice claims on 2D using the preimage `P` such that `sha256(P) = H`. The operator now sees `P` on the 2D side and uses it to claim the original USDC on Ethereum.
+
+The unlock authority is gone. There is no `unlock()` callable by the operator. The only function on either side that releases funds is `claim(preimage)`, which works only if `sha256(preimage) = hash` and only before the deadline. A compromised operator key cannot drain anything because preimages live in users' wallets, not the operator's.
+
+The matching `refund(hash)` returns funds to the original sender once the deadline passes with no claim. Worst case for the user is `refund` firing and money returning where it came from. There is no scenario in which an attacker walks out with TVL.
+
+## Refill-mint and the supply invariant
+
+The HTLC swap on the 2D side requires the operator to have liquidity to lock. Where does that liquidity come from?
+
+The default wrapped-bridge answer is "pre-mint a stockpile, trust the operator not to abscond." 2D refuses that trust. Production day-zero has zero USD-stable in the bridge operator's pool. The operator can only acquire USD-stable by **citing a finalized Ethereum lock**: every USD-stable that exists on the 2D side corresponds 1:1 to a verified Ethereum `Locked` event.
+
+The mechanism is a single state-changing function on the `BridgeRefillMint` precompile at `0x2D00…0003` ([`lib/chain/precompiles/bridge_refill_mint.ex`](https://github.com/igor53627/2d/blob/8b7caf2/lib/chain/precompiles/bridge_refill_mint.ex)):
+
+```solidity
+refill_mint(uint64 eth_chain_id, bytes32 eth_tx_hash, uint32 eth_log_index, uint256 amount)
+```
+
+Calldata is the source triple identifying a single `Locked` event on Ethereum, plus the amount being claimed. The precompile does three things, in order:
+
+1. Reject the call unless the caller equals the configured `bridge_operator_address`. This is a separate role from the genesis minter; misconfiguration that conflates the two raises at boot.
+2. Compute `eth_event_id = keccak256(eth_chain_id ‖ eth_tx_hash ‖ eth_log_index)` and try to insert a row keyed on that id into the `bridge_mints` ledger. The primary key on `eth_event_id` guarantees a duplicate triple cannot mint twice.
+3. If the insert succeeds, credit `amount` to the operator pool and emit `BridgeRefillMinted(eth_event_id, operator, amount)`.
+
+There is no batching. One `refill_mint` per finalized `Locked` event, one event per refill. On free 2D transactions there is no economic pressure to amortize, and running the call per event keeps the supply invariant tight at every block.
+
+The shape of the calldata is deliberate. An earlier design carried only the derived `eth_event_id` as a single `bytes32`. That made the id non-reversible at verifier time: the verifier needs the original `(chain_id, tx_hash, log_index)` triple to query Ethereum, and `keccak256` does not run backward. Storing the triple alongside the derived id keeps the verifier self-contained: every fact it needs to re-prove the mint lives in the block.
+
+## What the verifier checks
+
+The chain-side authorization on `BridgeRefillMint` is one check: the caller is the configured operator. That is enough to keep random users from minting, but it is nowhere near enough to guarantee that the cited event actually exists. A compromised operator key could call `refill_mint` with a fabricated triple and a bogus amount; the precompile would happily insert the row and credit the pool.
+
+This is where the verifier earns its keep. After the producer executes a candidate block, but before the verifier accepts it, every new `bridge_mints` row gets an independent cross-chain check ([`lib/chain/verifier/cross_chain_check.ex`](https://github.com/igor53627/2d/blob/8b7caf2/lib/chain/verifier/cross_chain_check.ex)):
+
+```elixir
+def verify_block_refills(block_number) do
+  block_number
+  |> load_rows()
+  |> Enum.reduce_while(:ok, &verify_row/2)
+end
+
+defp verify_row(row, :ok) do
+  case EthereumRpc.verify_locked_event(
+         row.eth_chain_id, row.eth_tx_hash,
+         row.eth_log_index, Decimal.to_integer(row.amount)
+       ) do
+    {:ok, :verified} -> {:cont, :ok}
+    {:error, reason} -> {:halt, {:error, :unbacked_refill_mint, ...}}
+  end
+end
+```
+
+Each row drives one Ethereum JSON-RPC roundtrip:
+
+- `eth_getTransactionReceipt(tx_hash)` returns the receipt; the log at `log_index` is inspected.
+- `eth_getBlockByNumber("finalized")` returns the highest finalized block number; the receipt's block must be at or below it.
+
+The verifier rejects the row if any of these conditions fails:
+
+| Reason | What it catches |
+|---|---|
+| `:not_found` | Receipt or log doesn't exist on Ethereum. |
+| `:wrong_contract` | Log's address isn't the configured Ethereum HTLC contract. |
+| `:wrong_event_signature` | Log's `topic[0]` isn't the canonical `Locked` event signature. |
+| `:chain_id_mismatch` | RPC's chain id doesn't match the row's `eth_chain_id`. |
+| `:amount_mismatch` | Log data's amount doesn't equal the claimed `amount`. |
+| `:not_finalized` | Block exists but isn't yet at finality. |
+| `:rpc_unreachable` / `:rpc_http_error` / `:malformed_response` | Defensive cases; treated as verification failure rather than success. |
+
+A failure on any row aborts the block as `:unbacked_refill_mint`. The verifier rolls back its execution transaction (no external side effect, since the cross-chain RPC is read-only), refuses to commit, and flags the producer as a consensus violation source.
+
+The ordering is load-bearing. The check runs **after** `BlockExecutor.execute_transactions` (so the new `bridge_mints` rows are visible inside the same SERIALIZABLE transaction) and **before** `Chain.StateRoot.compute`. Producer trust at include-time, verifier authority at finality. A compromised producer that includes an unbacked refill never reaches an honest user; every honest verifier rejects the block.
+
+## Helios — what "Ethereum RPC" actually means
+
+The verifier does not trust an Infura endpoint. `eth_getTransactionReceipt` and `eth_getBlockByNumber` from a remote RPC are RPC-level: the response could be anything the operator of that endpoint wants. A bridge that trusts a remote RPC for finality has, in effect, signed away its security to whoever runs that endpoint.
+
+The production verifier instead points the JSON-RPC URL at a local **helios** sidecar. Helios is a light client for Ethereum: it tracks the beacon chain's sync committee, verifies headers cryptographically, and serves an `eth_*` JSON-RPC API backed by light-client-verified data. The trust assumption reduces to **"≥ 1/3 of the beacon sync committee is honest"**, the same threshold that secures Ethereum's finality itself.
+
+In code, the dependency is a behaviour with two implementations ([`lib/chain/verifier/ethereum_rpc.ex`](https://github.com/igor53627/2d/blob/8b7caf2/lib/chain/verifier/ethereum_rpc.ex)):
+
+```elixir
+defmodule Chain.Verifier.EthereumRpc do
+  @callback verify_locked_event(
+              chain_id :: pos_integer(),
+              tx_hash :: <<_::256>>,
+              log_index :: non_neg_integer(),
+              expected_amount :: pos_integer()
+            ) :: {:ok, :verified} | {:error, error_reason()}
+end
+```
+
+`Chain.Verifier.EthereumRpc.HTTP` makes real JSON-RPC calls against `:chain, :ethereum_rpc_url`, which in production points at a helios process running on the same host. `Chain.Verifier.EthereumRpc.Stub` returns a configurable canned response for tests. Selection is via `:chain, :ethereum_rpc_module` and is **fail-closed**: there is no compile-time default. If the application boots without `ETHEREUM_RPC_URL` set in production or without an explicit Stub configuration in tests, the verifier raises with a descriptive message rather than silently accepting any refill mint.
+
+## Bridge-in / bridge-out walkthrough
+
+Bridge-in (Ethereum → 2D):
+
+1. **User locks on Ethereum.** Alice calls `lock(hash, amount, deadline)` on the Ethereum HTLC contract, escrowing `amount` USDC under `hash`.
+2. **Operator waits for finality.** The orchestrator watches for the `Locked` event, polls `eth_getBlockByNumber("finalized")`, and waits until the lock's block number is at or below the finalized one. Roughly 12-15 minutes on Ethereum mainnet.
+3. **Operator refills the 2D pool.** Operator submits `refill_mint(chain_id, tx_hash, log_index, amount)` to `0x2D00…0003`. The precompile inserts the row into `bridge_mints` and credits `amount` USD-stable to the operator's account. The verifier independently re-checks the Ethereum event on the next block; on success the block is committed, on failure the block is rejected.
+4. **Operator locks on 2D.** Operator calls `lock(hash, Alice, amount, deadline)` on the 2D HTLC at `0x2D00…0001`, escrowing the same `amount` USD-stable under the same `hash`.
+5. **Alice claims on 2D.** Alice's wallet calls `claim(preimage)` on the 2D HTLC. Because `sha256(preimage) = hash` and the deadline has not passed, the HTLC credits `amount` USD-stable to Alice.
+6. **Operator claims on Ethereum.** The preimage is now visible on the 2D chain in the claim transaction's calldata and `HTLC_Claimed` log. Operator calls `claim(preimage)` on the Ethereum HTLC and recovers the USDC into the operator pool.
+
+Bridge-out (2D → Ethereum) is symmetric, with the same role for the operator and the same preimage-driven settlement on both sides. The operator's accumulated USDC funds bridge-out payouts; if the operator runs out of USDC on Ethereum, bridge-out exits queue until inflows resume. There is no DoS vector that converts to a drain. Exits are delayed, never lost.
+
+## Trust model summary
+
+| Threat | Outcome |
+|---|---|
+| Operator key compromise | DoS only. The attacker can refuse to lock matching swaps, but cannot drain. There is no `unlock()` authority. |
+| Malicious operator submits bogus `refill_mint` | Rejected by verifier. The cross-chain check fails one of `:not_found`, `:wrong_contract`, `:amount_mismatch`, `:not_finalized`. Block dropped. |
+| Compromised producer includes an unbacked refill | Same path. Verifier rejects independently. The producer's claim never reaches honest users. |
+| User fails to claim before deadline | Per-swap loss bound. `refund(hash)` returns funds to the original sender after the deadline. |
+| Helios sidecar lies | Equivalent to ≥ 2/3 of the beacon sync committee being malicious. The whole Ethereum chain is at that point compromised; a bridge cannot do better than its underlying source-of-truth. |
+| Remote Ethereum RPC compromise | Not applicable. The verifier never queries an external RPC; it queries the local helios sidecar, which validates against beacon-chain signatures. |
+| Duplicate event submitted twice | Rejected at the chain side. `bridge_mints` PK on `eth_event_id` is committed in the [state root](/architecture/state-roots/), so a producer that bypassed the PK check would still be caught by the verifier's state-root recomputation. |
+
+The bridge inherits Ethereum's economic security on the source side and 2D's verifier on the chain side. There is no third trust party: no validator federation, no oracle, no custodian.
+
+## Where the bridge sits in the rest of the chain
+
+The bridge composes three pieces documented separately. The verifier's [block-by-block recheck](/architecture/verifier/) extends to `bridge_mints` via the cross-chain hook described above. The [state-root layout](/architecture/state-roots/) commits the `bridge_mints` dedup invariant so a malicious producer cannot double-mint without breaking the chain hash. The HTLC primitive that does the actual settlement runs as a [precompile](/architecture/precompiles/); the bridge is a particular protocol layered on top of that primitive, not a contract deployed into a virtual machine.

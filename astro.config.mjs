@@ -75,6 +75,13 @@ export default defineConfig({
 							slug: 'architecture/security',
 						},
 						{
+							label: 'Bridge (HTLC + per-event refill)',
+							translations: {
+								ru: 'Bridge (HTLC + per-event refill)',
+							},
+							slug: 'architecture/bridge',
+						},
+						{
 							label: 'Running a verifier',
 							translations: {
 								ru: 'Запуск верификатора',
