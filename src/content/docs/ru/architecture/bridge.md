@@ -169,89 +169,198 @@ end
 
 ## Сценарий bridge-in / bridge-out
 
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 460" role="img" aria-labelledby="bgi-title bgi-desc" style="width:100%;height:auto;max-width:640px;display:block;margin:1.5rem auto">
-  <title id="bgi-title">Bridge-in: Ethereum → 2D</title>
-  <desc id="bgi-desc">Шесть шагов. Alice делает lock USDC на Ethereum HTLC. Оператор после finality замечает event, делает refill_mint на 2D и lock эквивалентного USD-stable на 2D HTLC для Alice. Alice делает claim на 2D с preimage; оператор использует preimage, чтобы сделать claim исходных USDC на Ethereum.</desc>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 560" role="img" aria-labelledby="bgi-title bgi-desc" style="width:100%;height:auto;max-width:720px;display:block;margin:1.5rem auto">
+  <title id="bgi-title">Bridge-in: USDC на Ethereum, USD-stable на 2D, единый preimage завершает обе стороны</title>
+  <desc id="bgi-desc">18-секундный цикл. (1) USDC уходит из кошелька Alice в Ethereum HTLC; vault защёлкивается под хешем H. (2) Оператор ждёт finality на Ethereum. (3) Оператор делает refill_mint, и USD-stable материализуется в пуле 2D, верификатор перепроверяет event. (4) Оператор делает lock USD-stable на 2D HTLC под тем же H. (5) Alice делает claim на 2D, раскрывая preimage P; USD-stable приходит ей в кошелёк. (6) Оператор по этому P делает claim исходных USDC на Ethereum.</desc>
   <style>
-    .bgi-lbl { font-family: ui-monospace,'SF Mono','JetBrains Mono',monospace; font-size: 11px; fill: currentColor; }
-    .bgi-num { font-family: ui-sans-serif,system-ui,sans-serif; font-size: 11px; font-weight: 700; fill: currentColor; }
-    .bgi-ann { font-family: ui-sans-serif,system-ui,sans-serif; font-size: 9px; fill: currentColor; opacity: 0.7; }
-    .bgi-hdr { font-family: ui-sans-serif,system-ui,sans-serif; font-size: 12px; font-weight: 600; fill: currentColor; }
-    .bgi-actor { stroke: currentColor; stroke-width: 1.2; fill: none; }
-    .bgi-life  { stroke: currentColor; stroke-width: 1; stroke-dasharray: 3 4; opacity: 0.35; }
-    .bgi-step          { opacity: 0.25; }
-    .bgi-step line     { stroke: currentColor; stroke-width: 2; fill: none; }
-    .bgi-step polygon  { fill: currentColor; }
-    @keyframes bgi-pop {
-      0%, 14% { opacity: 1; }
-      15%, 100% { opacity: 0.22; }
+    .bgi-lane     { fill: currentColor; opacity: 0.04; stroke: currentColor; stroke-width: 1; stroke-opacity: 0.18; }
+    .bgi-lane-lbl { font-family: ui-sans-serif, system-ui, sans-serif; font-size: 10px; font-weight: 700; letter-spacing: 0.18em; fill: currentColor; opacity: 0.45; }
+    .bgi-conn     { fill: none; stroke: currentColor; stroke-width: 1; stroke-dasharray: 4 4; opacity: 0.28; }
+    .bgi-actor-ring  { fill: none; stroke: currentColor; stroke-width: 1.5; opacity: 0.65; }
+    .bgi-actor-init  { font-family: ui-sans-serif, system-ui, sans-serif; font-size: 13px; font-weight: 700; fill: currentColor; opacity: 0.85; }
+    .bgi-actor-lbl   { font-family: ui-sans-serif, system-ui, sans-serif; font-size: 11px; fill: currentColor; opacity: 0.85; }
+    .bgi-vault-body  { fill: currentColor; fill-opacity: 0.06; stroke: currentColor; stroke-width: 1.6; opacity: 0.85; }
+    .bgi-vault-lbl   { font-family: ui-sans-serif, system-ui, sans-serif; font-size: 10px; font-weight: 700; fill: currentColor; opacity: 0.6; }
+    .bgi-op-icon  { fill: currentColor; fill-opacity: 0.07; stroke: currentColor; stroke-width: 1.5; }
+    .bgi-op-halo  { fill: none; stroke: currentColor; stroke-width: 1.5; opacity: 0; transform-box: fill-box; transform-origin: center; animation: bgi-halo 3s infinite ease-out; }
+    @keyframes bgi-halo {
+      0%   { transform: scale(1);   opacity: 0.45; }
+      100% { transform: scale(2.4); opacity: 0;    }
     }
-    .bgi-step-1 { animation: bgi-pop 12s infinite  0s; }
-    .bgi-step-2 { animation: bgi-pop 12s infinite  2s; }
-    .bgi-step-3 { animation: bgi-pop 12s infinite  4s; }
-    .bgi-step-4 { animation: bgi-pop 12s infinite  6s; }
-    .bgi-step-5 { animation: bgi-pop 12s infinite  8s; }
-    .bgi-step-6 { animation: bgi-pop 12s infinite 10s; }
+    .bgi-badge        { opacity: 0; }
+    .bgi-badge rect   { stroke-width: 1; }
+    .bgi-badge text   { font-family: ui-sans-serif, system-ui, sans-serif; font-size: 9.5px; font-weight: 700; fill: #fff; }
+    .bgi-hash rect    { fill: #c0584a; stroke: #8c3e33; }
+    .bgi-pre  rect    { fill: #4a8e58; stroke: #336940; }
+    .bgi-hash-eth { animation: bgi-hash-eth 18s infinite; }
+    .bgi-hash-2d  { animation: bgi-hash-2d  18s infinite; }
+    .bgi-pre-2d   { animation: bgi-pre-2d   18s infinite; }
+    .bgi-pre-op   { animation: bgi-pre-op   18s infinite; }
+    .bgi-pre-eth  { animation: bgi-pre-eth  18s infinite; }
+    @keyframes bgi-hash-eth { 0%, 16.5% { opacity: 0; } 17%, 83% { opacity: 1; } 84%, 100% { opacity: 0; } }
+    @keyframes bgi-hash-2d  { 0%, 65%   { opacity: 0; } 66%, 73% { opacity: 1; } 74%, 100% { opacity: 0; } }
+    @keyframes bgi-pre-2d   { 0%, 73%   { opacity: 0; } 75%, 99% { opacity: 1; } 100%      { opacity: 0; } }
+    @keyframes bgi-pre-op   { 0%, 77%   { opacity: 0; } 79%, 89% { opacity: 1; } 91%, 100% { opacity: 0; } }
+    @keyframes bgi-pre-eth  { 0%, 84%   { opacity: 0; } 86%, 99% { opacity: 1; } 100%      { opacity: 0; } }
+    .bgi-tok          { transform-box: fill-box; }
+    .bgi-tok text     { font-family: ui-sans-serif, system-ui, sans-serif; font-size: 8px; font-weight: 700; fill: #fff; pointer-events: none; }
+    .bgi-tok-usdc circle { fill: #4d8fc9; stroke: #2c5e88; stroke-width: 1; filter: drop-shadow(0 0 3px rgba(77,143,201,0.55)); }
+    .bgi-tok-usd  circle { fill: #e8b33d; stroke: #b88718; stroke-width: 1; filter: drop-shadow(0 0 3px rgba(232,179,61,0.55)); }
+    .bgi-tok-usdc { animation: bgi-usdc-flow 18s infinite ease-in-out; }
+    .bgi-tok-usd  { animation: bgi-usd-flow  18s infinite ease-in-out; }
+    @keyframes bgi-usdc-flow {
+      0%      { transform: translate(0, 0);     opacity: 0; }
+      2%      { transform: translate(0, 0);     opacity: 1; }
+      16.67%  { transform: translate(270px, 0); opacity: 1; }
+      83%     { transform: translate(270px, 0); opacity: 1; }
+      97%     { transform: translate(540px, 0); opacity: 1; }
+      100%    { transform: translate(540px, 0); opacity: 0; }
+    }
+    @keyframes bgi-usd-flow {
+      0%, 33%   { transform: translate(0, 0);      opacity: 0; }
+      36%       { transform: translate(0, 0);      opacity: 1; }
+      66.67%    { transform: translate(-270px, 0); opacity: 1; }
+      74%       { transform: translate(-270px, 0); opacity: 1; }
+      83.33%    { transform: translate(-540px, 0); opacity: 1; }
+      97%       { transform: translate(-540px, 0); opacity: 1; }
+      100%      { transform: translate(-540px, 0); opacity: 0; }
+    }
+    .bgi-dot      { fill: currentColor; opacity: 0.22; transform-box: fill-box; transform-origin: center; }
+    @keyframes bgi-dot-on { 0%, 14% { opacity: 1; transform: scale(1.35); } 16%, 100% { opacity: 0.22; transform: scale(1); } }
+    .bgi-dot-1 { animation: bgi-dot-on 18s infinite  0s; }
+    .bgi-dot-2 { animation: bgi-dot-on 18s infinite  3s; }
+    .bgi-dot-3 { animation: bgi-dot-on 18s infinite  6s; }
+    .bgi-dot-4 { animation: bgi-dot-on 18s infinite  9s; }
+    .bgi-dot-5 { animation: bgi-dot-on 18s infinite 12s; }
+    .bgi-dot-6 { animation: bgi-dot-on 18s infinite 15s; }
+    .bgi-cap   { font-family: ui-sans-serif, system-ui, sans-serif; font-size: 11.5px; fill: currentColor; opacity: 0; }
+    @keyframes bgi-cap-on { 0%, 14% { opacity: 0.9; } 16%, 100% { opacity: 0; } }
+    .bgi-cap-1 { animation: bgi-cap-on 18s infinite  0s; }
+    .bgi-cap-2 { animation: bgi-cap-on 18s infinite  3s; }
+    .bgi-cap-3 { animation: bgi-cap-on 18s infinite  6s; }
+    .bgi-cap-4 { animation: bgi-cap-on 18s infinite  9s; }
+    .bgi-cap-5 { animation: bgi-cap-on 18s infinite 12s; }
+    .bgi-cap-6 { animation: bgi-cap-on 18s infinite 15s; }
     @media (prefers-reduced-motion: reduce) {
-      .bgi-step { opacity: 1; animation: none; }
+      .bgi-tok-usdc, .bgi-tok-usd, .bgi-op-halo, .bgi-dot,
+      .bgi-hash-eth, .bgi-hash-2d, .bgi-pre-2d, .bgi-pre-op, .bgi-pre-eth,
+      .bgi-cap-1, .bgi-cap-2, .bgi-cap-3, .bgi-cap-4, .bgi-cap-5, .bgi-cap-6 { animation: none; }
+      .bgi-tok-usdc { transform: translate(270px, 0); opacity: 1; }
+      .bgi-tok-usd  { transform: translate(-270px, 0); opacity: 1; }
+      .bgi-dot { opacity: 0.45; }
+      .bgi-hash-eth, .bgi-hash-2d { opacity: 1; }
+      .bgi-cap-1 { opacity: 0.9; }
     }
   </style>
-  <rect class="bgi-actor" x="20"  y="10" width="120" height="36" rx="4"/>
-  <text class="bgi-hdr" x="80"  y="33" text-anchor="middle">Alice</text>
-  <rect class="bgi-actor" x="180" y="10" width="120" height="36" rx="4"/>
-  <text class="bgi-hdr" x="240" y="27" text-anchor="middle">Ethereum</text>
-  <text class="bgi-hdr" x="240" y="41" text-anchor="middle">HTLC</text>
-  <rect class="bgi-actor" x="340" y="10" width="120" height="36" rx="4"/>
-  <text class="bgi-hdr" x="400" y="33" text-anchor="middle">Оператор</text>
-  <rect class="bgi-actor" x="500" y="10" width="120" height="36" rx="4"/>
-  <text class="bgi-hdr" x="560" y="27" text-anchor="middle">2D</text>
-  <text class="bgi-hdr" x="560" y="41" text-anchor="middle">precompiles</text>
-  <line class="bgi-life" x1="80"  y1="50" x2="80"  y2="450"/>
-  <line class="bgi-life" x1="240" y1="50" x2="240" y2="450"/>
-  <line class="bgi-life" x1="400" y1="50" x2="400" y2="450"/>
-  <line class="bgi-life" x1="560" y1="50" x2="560" y2="450"/>
-  <g class="bgi-step bgi-step-1">
-    <text class="bgi-num" x="22" y="98" text-anchor="start">1.</text>
-    <line x1="84" y1="95" x2="234" y2="95"/>
-    <polygon points="234,95 226,91 226,99"/>
-    <text class="bgi-lbl" x="159" y="88" text-anchor="middle">lock(hash, USDC, deadline)</text>
+
+  <!-- Step indicator dots -->
+  <circle class="bgi-dot bgi-dot-1" cx="285" cy="20" r="5"/>
+  <circle class="bgi-dot bgi-dot-2" cx="315" cy="20" r="5"/>
+  <circle class="bgi-dot bgi-dot-3" cx="345" cy="20" r="5"/>
+  <circle class="bgi-dot bgi-dot-4" cx="375" cy="20" r="5"/>
+  <circle class="bgi-dot bgi-dot-5" cx="405" cy="20" r="5"/>
+  <circle class="bgi-dot bgi-dot-6" cx="435" cy="20" r="5"/>
+
+  <!-- Lane: ETHEREUM -->
+  <rect class="bgi-lane" x="10"  y="40"  width="700" height="170" rx="10"/>
+  <text class="bgi-lane-lbl" x="28" y="62">ETHEREUM</text>
+
+  <!-- Lane: 2D CHAIN -->
+  <rect class="bgi-lane" x="10"  y="340" width="700" height="170" rx="10"/>
+  <text class="bgi-lane-lbl" x="28" y="362">2D&#160;CHAIN</text>
+
+  <!-- Connection paths (ETH lane) -->
+  <line class="bgi-conn" x1="115" y1="120" x2="335" y2="120"/>
+  <line class="bgi-conn" x1="385" y1="120" x2="605" y2="120"/>
+  <!-- Connection paths (2D lane) -->
+  <line class="bgi-conn" x1="115" y1="420" x2="335" y2="420"/>
+  <line class="bgi-conn" x1="385" y1="420" x2="605" y2="420"/>
+  <!-- Vertical operator paths -->
+  <path class="bgi-conn" d="M 360 145 Q 340 215 360 248"/>
+  <path class="bgi-conn" d="M 360 295 Q 340 365 360 395"/>
+
+  <!-- Alice @ ETH -->
+  <circle class="bgi-actor-ring" cx="90" cy="120" r="22"/>
+  <text class="bgi-actor-init" x="90" y="125" text-anchor="middle">A</text>
+  <text class="bgi-actor-lbl"   x="90" y="170" text-anchor="middle">Alice</text>
+
+  <!-- Ethereum HTLC vault -->
+  <rect class="bgi-vault-body" x="330" y="90" width="60" height="60" rx="6"/>
+  <text class="bgi-vault-lbl"  x="360" y="125" text-anchor="middle">HTLC</text>
+  <text class="bgi-actor-lbl"  x="360" y="170" text-anchor="middle">Ethereum HTLC</text>
+
+  <!-- Op USDC reserve @ ETH -->
+  <circle class="bgi-actor-ring" cx="630" cy="120" r="22"/>
+  <text class="bgi-actor-init" x="630" y="125" text-anchor="middle">$</text>
+  <text class="bgi-actor-lbl"  x="630" y="170" text-anchor="middle">Op USDC резерв</text>
+
+  <!-- Operator (middle) -->
+  <circle class="bgi-op-halo"  cx="360" cy="270" r="22"/>
+  <circle class="bgi-op-icon"  cx="360" cy="270" r="22"/>
+  <text class="bgi-actor-init" x="360" y="275" text-anchor="middle">Op</text>
+  <text class="bgi-actor-lbl"  x="360" y="320" text-anchor="middle">Оператор</text>
+
+  <!-- Alice @ 2D -->
+  <circle class="bgi-actor-ring" cx="90" cy="420" r="22"/>
+  <text class="bgi-actor-init" x="90" y="425" text-anchor="middle">A</text>
+  <text class="bgi-actor-lbl"  x="90" y="470" text-anchor="middle">Alice на 2D</text>
+
+  <!-- 2D HTLC vault -->
+  <rect class="bgi-vault-body" x="330" y="390" width="60" height="60" rx="6"/>
+  <text class="bgi-vault-lbl"  x="360" y="425" text-anchor="middle">HTLC</text>
+  <text class="bgi-actor-lbl"  x="360" y="470" text-anchor="middle">2D HTLC</text>
+
+  <!-- Op USD pool / RefillMint @ 2D -->
+  <circle class="bgi-actor-ring" cx="630" cy="420" r="22"/>
+  <text class="bgi-actor-init" x="630" y="425" text-anchor="middle">$</text>
+  <text class="bgi-actor-lbl"  x="630" y="465" text-anchor="middle">Op pool</text>
+  <text class="bgi-actor-lbl"  x="630" y="479" text-anchor="middle">/ RefillMint</text>
+
+  <!-- Hash badge on Ethereum HTLC -->
+  <g class="bgi-badge bgi-hash bgi-hash-eth">
+    <rect x="332" y="68" width="56" height="14" rx="3"/>
+    <text x="360" y="78" text-anchor="middle">hash:H</text>
   </g>
-  <g class="bgi-step bgi-step-2">
-    <text class="bgi-num" x="22" y="155" text-anchor="start">2.</text>
-    <line x1="244" y1="148" x2="394" y2="148"/>
-    <polygon points="394,148 386,144 386,152"/>
-    <text class="bgi-lbl" x="319" y="141" text-anchor="middle">Locked event пойман</text>
-    <text class="bgi-ann" x="319" y="163" text-anchor="middle">на finalized блоке, ~12-15 мин</text>
+  <!-- Hash badge on 2D HTLC -->
+  <g class="bgi-badge bgi-hash bgi-hash-2d">
+    <rect x="332" y="368" width="56" height="14" rx="3"/>
+    <text x="360" y="378" text-anchor="middle">hash:H</text>
   </g>
-  <g class="bgi-step bgi-step-3">
-    <text class="bgi-num" x="22" y="218" text-anchor="start">3.</text>
-    <line x1="404" y1="211" x2="554" y2="211"/>
-    <polygon points="554,211 546,207 546,215"/>
-    <text class="bgi-lbl" x="479" y="204" text-anchor="middle">refill_mint(triple, amount)</text>
-    <text class="bgi-ann" x="479" y="226" text-anchor="middle">верификатор проверяет через helios</text>
+  <!-- Preimage badge on 2D HTLC -->
+  <g class="bgi-badge bgi-pre bgi-pre-2d">
+    <rect x="328" y="368" width="64" height="14" rx="3"/>
+    <text x="360" y="378" text-anchor="middle">preimage:P</text>
   </g>
-  <g class="bgi-step bgi-step-4">
-    <text class="bgi-num" x="22" y="285" text-anchor="start">4.</text>
-    <line x1="404" y1="278" x2="554" y2="278"/>
-    <polygon points="554,278 546,274 546,282"/>
-    <text class="bgi-lbl" x="479" y="266" text-anchor="middle">lock(hash, Alice,</text>
-    <text class="bgi-lbl" x="479" y="278" text-anchor="middle">amount, deadline)</text>
-    <text class="bgi-ann" x="479" y="296" text-anchor="middle">на 2D HTLC</text>
+  <!-- Preimage badge on Operator -->
+  <g class="bgi-badge bgi-pre bgi-pre-op">
+    <rect x="328" y="296" width="64" height="14" rx="3"/>
+    <text x="360" y="306" text-anchor="middle">preimage:P</text>
   </g>
-  <g class="bgi-step bgi-step-5">
-    <text class="bgi-num" x="22" y="350" text-anchor="start">5.</text>
-    <line x1="84" y1="343" x2="554" y2="343"/>
-    <polygon points="554,343 546,339 546,347"/>
-    <text class="bgi-lbl" x="319" y="336" text-anchor="middle">claim(preimage)</text>
-    <text class="bgi-ann" x="319" y="358" text-anchor="middle">P виден на цепи 2D</text>
+  <!-- Preimage badge on Ethereum HTLC -->
+  <g class="bgi-badge bgi-pre bgi-pre-eth">
+    <rect x="328" y="68" width="64" height="14" rx="3"/>
+    <text x="360" y="78" text-anchor="middle">preimage:P</text>
   </g>
-  <g class="bgi-step bgi-step-6">
-    <text class="bgi-num" x="22" y="412" text-anchor="start">6.</text>
-    <line x1="396" y1="405" x2="246" y2="405"/>
-    <polygon points="246,405 254,401 254,409"/>
-    <text class="bgi-lbl" x="321" y="398" text-anchor="middle">claim(preimage)</text>
-    <text class="bgi-ann" x="321" y="420" text-anchor="middle">оператор забирает исходные USDC</text>
+
+  <!-- USDC token (Alice@ETH → Ethereum HTLC → Op USDC резерв) -->
+  <g class="bgi-tok bgi-tok-usdc">
+    <circle cx="90" cy="120" r="14"/>
+    <text x="90" y="123" text-anchor="middle">USDC</text>
   </g>
+
+  <!-- USD-stable token (Op pool 2D → 2D HTLC → Alice на 2D) -->
+  <g class="bgi-tok bgi-tok-usd">
+    <circle cx="630" cy="420" r="14"/>
+    <text x="630" y="423" text-anchor="middle">USD</text>
+  </g>
+
+  <!-- Phase captions -->
+  <text class="bgi-cap bgi-cap-1" x="360" y="540" text-anchor="middle">1. Alice делает lock USDC на Ethereum HTLC под хешем H.</text>
+  <text class="bgi-cap bgi-cap-2" x="360" y="540" text-anchor="middle">2. Оператор ждёт finality на Ethereum (~12-15 мин).</text>
+  <text class="bgi-cap bgi-cap-3" x="360" y="540" text-anchor="middle">3. refill_mint минтит USD-stable в пул 2D; верификатор проверяет через helios.</text>
+  <text class="bgi-cap bgi-cap-4" x="360" y="540" text-anchor="middle">4. Оператор делает lock USD-stable на 2D HTLC под тем же H.</text>
+  <text class="bgi-cap bgi-cap-5" x="360" y="540" text-anchor="middle">5. Alice делает claim на 2D, раскрывая preimage P.</text>
+  <text class="bgi-cap bgi-cap-6" x="360" y="540" text-anchor="middle">6. Оператор по раскрытому P забирает исходные USDC на Ethereum.</text>
 </svg>
 
 Bridge-in (Ethereum → 2D):
