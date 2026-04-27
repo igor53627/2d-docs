@@ -39,7 +39,7 @@ Duplicate transaction hashes are handled with `ON CONFLICT DO NOTHING` at insert
 
 ## Anti-spam throttle
 
-All transactions are free (fee = 0). Spam is prevented by an exponential delay applied at the block producer level. See [Gasless transactions](/architecture/gasless/) for details.
+All transactions are free (fee = 0). Spam is prevented by an exponential delay applied at the block producer level. See [Gasless transactions](../gasless/) for details.
 
 The throttle operates at the SQL level: addresses that exceed the rate threshold are excluded from the pending query entirely, preventing a single spammer from blocking other users' transactions (head-of-line blocking prevention).
 
@@ -63,7 +63,7 @@ The verifier trusts nothing from the producer. For every block, it independently
 - Verifies the transactions root, state root, and block hash
 - For genesis: pins canonical timestamp and transactions root to known constants
 
-A mismatch on any of these causes the verifier to halt and refuse to serve. See [Running a verifier](/architecture/verifier/) for operational details.
+A mismatch on any of these causes the verifier to halt and refuse to serve. See [Running a verifier](../verifier/) for operational details.
 
 ## Database constraints
 

@@ -14,7 +14,7 @@ Four tables from the state schema, sorted by primary key, each row hashed with k
 - **accounts** (address, balance, nonce). Every account that has ever received USD-stable.
 - **htlc_swaps** (hash, sender, receiver, amount, deadline, status, preimage). Every active or terminal atomic-swap lock.
 - **precompiles** (address, name, handler, enabled). The set of registered precompile contracts.
-- **bridge_mints** (eth_event_id, source triple, amount, applied block coordinates). One row per Ethereum `Locked` event the operator has refilled against. Inclusion is load-bearing: without it the dedup invariant would live only inside the table, and a producer could double-mint while still matching an honest verifier's replay. See the [bridge article](/architecture/bridge/) for the cross-chain check that re-validates each row.
+- **bridge_mints** (eth_event_id, source triple, amount, applied block coordinates). One row per Ethereum `Locked` event the operator has refilled against. Inclusion is load-bearing: without it the dedup invariant would live only inside the table, and a producer could double-mint while still matching an honest verifier's replay. See the [bridge article](../bridge/) for the cross-chain check that re-validates each row.
 
 `blocks_tip` (the singleton that caches the current head pointer) is deliberately excluded. It is a convenience cache, not consensus state. Including it would create a circular dependency: the state root must be computed before the tip is updated, but the tip update happens in the same transaction.
 
@@ -105,4 +105,4 @@ When the state grows, the plan is to migrate to an incremental Merkle tree that 
 
 ## Why this matters for cross-chain bridges
 
-The first concrete consumer of this property is the [bridge](/architecture/bridge/). For every refill the operator submits, the verifier independently queries the cited Ethereum event through a local helios sidecar and rejects the block if anything fails to match. State roots make this possible by giving every client a verifiable view of what actually landed on-chain: the `bridge_mints` row, with its source triple, dedup id, and amount, is hashed into the chain and cannot be quietly rewritten by a compromised producer.
+The first concrete consumer of this property is the [bridge](../bridge/). For every refill the operator submits, the verifier independently queries the cited Ethereum event through a local helios sidecar and rejects the block if anything fails to match. State roots make this possible by giving every client a verifiable view of what actually landed on-chain: the `bridge_mints` row, with its source triple, dedup id, and amount, is hashed into the chain and cannot be quietly rewritten by a compromised producer.

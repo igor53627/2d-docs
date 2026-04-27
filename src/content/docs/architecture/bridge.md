@@ -141,10 +141,10 @@ Bridge-out (2D → Ethereum) is symmetric, with the same role for the operator a
 | User fails to claim before deadline | Per-swap loss bound. `refund(hash)` returns funds to the original sender after the deadline. |
 | Helios sidecar lies | Equivalent to ≥ 2/3 of the beacon sync committee being malicious. The whole Ethereum chain is at that point compromised; a bridge cannot do better than its underlying source-of-truth. |
 | Remote Ethereum RPC compromise | Not applicable. The verifier never queries an external RPC; it queries the local helios sidecar, which validates against beacon-chain signatures. |
-| Duplicate event submitted twice | Rejected at the chain side. `bridge_mints` PK on `eth_event_id` is committed in the [state root](/architecture/state-roots/), so a producer that bypassed the PK check would still be caught by the verifier's state-root recomputation. |
+| Duplicate event submitted twice | Rejected at the chain side. `bridge_mints` PK on `eth_event_id` is committed in the [state root](../state-roots/), so a producer that bypassed the PK check would still be caught by the verifier's state-root recomputation. |
 
 The bridge inherits Ethereum's economic security on the source side and 2D's verifier on the chain side. There is no third trust party: no validator federation, no oracle, no custodian.
 
 ## Where the bridge sits in the rest of the chain
 
-The bridge composes three pieces documented separately. The verifier's [block-by-block recheck](/architecture/verifier/) extends to `bridge_mints` via the cross-chain hook described above. The [state-root layout](/architecture/state-roots/) commits the `bridge_mints` dedup invariant so a malicious producer cannot double-mint without breaking the chain hash. The HTLC primitive that does the actual settlement runs as a [precompile](/architecture/precompiles/); the bridge is a particular protocol layered on top of that primitive, not a contract deployed into a virtual machine.
+The bridge composes three pieces documented separately. The verifier's [block-by-block recheck](../verifier/) extends to `bridge_mints` via the cross-chain hook described above. The [state-root layout](../state-roots/) commits the `bridge_mints` dedup invariant so a malicious producer cannot double-mint without breaking the chain hash. The HTLC primitive that does the actual settlement runs as a [precompile](../precompiles/); the bridge is a particular protocol layered on top of that primitive, not a contract deployed into a virtual machine.

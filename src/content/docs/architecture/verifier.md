@@ -5,7 +5,7 @@ description: How to deploy a verifier that independently replays every block, se
 
 A verifier is a read-only node that replays every block from the producer against its own copy of the state. If the state root or block hash doesn't match, it refuses the block and stops serving. Users and wallets connect to the verifier's RPC, never to the producer directly.
 
-This article covers the practical side: configuration, startup, what gets verified, and what happens when something fails. For the cryptographic details of state roots and block hashes, see [State roots](/architecture/state-roots/).
+This article covers the practical side: configuration, startup, what gets verified, and what happens when something fails. For the cryptographic details of state roots and block hashes, see [State roots](../state-roots/).
 
 ## Configuration
 
