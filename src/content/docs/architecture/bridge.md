@@ -128,15 +128,15 @@ The ordering is load-bearing. The check runs **after** `BlockExecutor.execute_tr
     @keyframes cco-block-flow {
       0%      { transform: translate(0, 0);     opacity: 0; }
       4%      { transform: translate(0, 0);     opacity: 1; }
-      12.5%   { transform: translate(105px, 0); opacity: 1; }
-      25%     { transform: translate(105px, 0); opacity: 1; }
-      37.5%   { transform: translate(320px, 0); opacity: 1; }
-      50%     { transform: translate(320px, 0); opacity: 1; }
-      62.5%   { transform: translate(535px, 0); opacity: 1; }
-      75%     { transform: translate(535px, 0); opacity: 1; }
-      87.5%   { transform: translate(660px, 0); opacity: 1; }
-      98%     { transform: translate(660px, 0); opacity: 1; }
-      100%    { transform: translate(660px, 0); opacity: 0; }
+      12.5%   { transform: translate(105, 0); opacity: 1; }
+      25%     { transform: translate(105, 0); opacity: 1; }
+      37.5%   { transform: translate(320, 0); opacity: 1; }
+      50%     { transform: translate(320, 0); opacity: 1; }
+      62.5%   { transform: translate(535, 0); opacity: 1; }
+      75%     { transform: translate(535, 0); opacity: 1; }
+      87.5%   { transform: translate(660, 0); opacity: 1; }
+      98%     { transform: translate(660, 0); opacity: 1; }
+      100%    { transform: translate(660, 0); opacity: 0; }
     }
     .cco-sroot       { opacity: 0; animation: cco-sroot-show 12s infinite; }
     .cco-sroot rect  { fill: #4a8e58; stroke: #336940; stroke-width: 1; }
@@ -164,7 +164,7 @@ The ordering is load-bearing. The check runs **after** `BlockExecutor.execute_tr
       .cco-block, .cco-sroot, .cco-rows, .cco-commit,
       .cco-cap-1, .cco-cap-2, .cco-cap-3, .cco-cap-4 { animation: none; }
       .cco-stage { opacity: 1; }
-      .cco-block { transform: translate(320px, 0); opacity: 1; }
+      .cco-block { transform: translate(320, 0); opacity: 1; }
       .cco-rows  { opacity: 1; }
       .cco-cap-2 { opacity: 0.9; }
     }
@@ -314,19 +314,19 @@ end
     @keyframes bgi-usdc-flow {
       0%      { transform: translate(0, 0);     opacity: 0; }
       2%      { transform: translate(0, 0);     opacity: 1; }
-      16.67%  { transform: translate(270px, 0); opacity: 1; }
-      83%     { transform: translate(270px, 0); opacity: 1; }
-      97%     { transform: translate(540px, 0); opacity: 1; }
-      100%    { transform: translate(540px, 0); opacity: 0; }
+      16.67%  { transform: translate(270, 0); opacity: 1; }
+      83%     { transform: translate(270, 0); opacity: 1; }
+      97%     { transform: translate(540, 0); opacity: 1; }
+      100%    { transform: translate(540, 0); opacity: 0; }
     }
     @keyframes bgi-usd-flow {
       0%, 33%   { transform: translate(0, 0);      opacity: 0; }
       36%       { transform: translate(0, 0);      opacity: 1; }
-      66.67%    { transform: translate(-270px, 0); opacity: 1; }
-      74%       { transform: translate(-270px, 0); opacity: 1; }
-      83.33%    { transform: translate(-540px, 0); opacity: 1; }
-      97%       { transform: translate(-540px, 0); opacity: 1; }
-      100%      { transform: translate(-540px, 0); opacity: 0; }
+      66.67%    { transform: translate(-270, 0); opacity: 1; }
+      74%       { transform: translate(-270, 0); opacity: 1; }
+      83.33%    { transform: translate(-540, 0); opacity: 1; }
+      97%       { transform: translate(-540, 0); opacity: 1; }
+      100%      { transform: translate(-540, 0); opacity: 0; }
     }
     .bgi-dot      { fill: currentColor; opacity: 0.22; transform-box: fill-box; transform-origin: center; }
     @keyframes bgi-dot-on { 0%, 14% { opacity: 1; transform: scale(1.35); } 16%, 100% { opacity: 0.22; transform: scale(1); } }
@@ -348,8 +348,8 @@ end
       .bgi-tok-usdc, .bgi-tok-usd, .bgi-op-halo, .bgi-dot,
       .bgi-hash-eth, .bgi-hash-2d, .bgi-pre-2d, .bgi-pre-op, .bgi-pre-eth,
       .bgi-cap-1, .bgi-cap-2, .bgi-cap-3, .bgi-cap-4, .bgi-cap-5, .bgi-cap-6 { animation: none; }
-      .bgi-tok-usdc { transform: translate(270px, 0); opacity: 1; }
-      .bgi-tok-usd  { transform: translate(-270px, 0); opacity: 1; }
+      .bgi-tok-usdc { transform: translate(270, 0); opacity: 1; }
+      .bgi-tok-usd  { transform: translate(-270, 0); opacity: 1; }
       .bgi-dot { opacity: 0.45; }
       .bgi-hash-eth, .bgi-hash-2d { opacity: 1; }
       .bgi-cap-1 { opacity: 0.9; }
