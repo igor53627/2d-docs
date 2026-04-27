@@ -97,6 +97,55 @@ A failure on any row aborts the block as `:unbacked_refill_mint`. The verifier r
 
 The ordering is load-bearing. The check runs **after** `BlockExecutor.execute_transactions` (so the new `bridge_mints` rows are visible inside the same SERIALIZABLE transaction) and **before** `Chain.StateRoot.compute`. Producer trust at include-time, verifier authority at finality. A compromised producer that includes an unbacked refill never reaches an honest user; every honest verifier rejects the block.
 
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 180" role="img" aria-labelledby="cco-title cco-desc" style="width:100%;height:auto;max-width:640px;display:block;margin:1.5rem auto">
+  <title id="cco-title">Cross-chain check ordering inside the verifier</title>
+  <desc id="cco-desc">Three stages run in fixed order inside one SERIALIZABLE block-execution transaction: execute_transactions, then verify_block_refills via helios, then StateRoot.compute. Failure at any stage rolls back the whole block.</desc>
+  <style>
+    .cco-lbl  { font-family: ui-monospace,'SF Mono','JetBrains Mono',monospace; font-size: 12px; font-weight: 600; fill: currentColor; }
+    .cco-ann  { font-family: ui-sans-serif,system-ui,sans-serif; font-size: 10px; fill: currentColor; opacity: 0.75; }
+    .cco-frame{ font-family: ui-sans-serif,system-ui,sans-serif; font-size: 10px; fill: currentColor; opacity: 0.6; font-style: italic; }
+    .cco-stage rect { stroke: currentColor; stroke-width: 1.5; fill: none; }
+    .cco-stage      { opacity: 0.3; }
+    .cco-arr        { stroke: currentColor; stroke-width: 1.5; fill: none; opacity: 0.5; }
+    .cco-arr-head   { fill: currentColor; opacity: 0.5; }
+    @keyframes cco-pop {
+      0%, 28% { opacity: 1; }
+      28.5%, 100% { opacity: 0.3; }
+    }
+    .cco-stage-1 { animation: cco-pop 6s infinite 0s; }
+    .cco-stage-2 { animation: cco-pop 6s infinite 2s; }
+    .cco-stage-3 { animation: cco-pop 6s infinite 4s; }
+    @media (prefers-reduced-motion: reduce) {
+      .cco-stage { opacity: 1; animation: none; }
+    }
+  </style>
+  <text class="cco-frame" x="320" y="18" text-anchor="middle">inside one SERIALIZABLE block-execution transaction</text>
+  <rect x="20" y="30" width="600" height="105" rx="4" stroke="currentColor" stroke-width="1" stroke-dasharray="4 4" fill="none" opacity="0.3"/>
+  <g class="cco-stage cco-stage-1">
+    <rect x="40" y="55" width="170" height="60" rx="6"/>
+    <text class="cco-lbl" x="125" y="80" text-anchor="middle">execute_transactions</text>
+    <text class="cco-ann" x="125" y="97" text-anchor="middle">credits, debits, inserts</text>
+    <text class="cco-ann" x="125" y="109" text-anchor="middle">new bridge_mints rows</text>
+  </g>
+  <g class="cco-stage cco-stage-2">
+    <rect x="235" y="55" width="170" height="60" rx="6"/>
+    <text class="cco-lbl" x="320" y="80" text-anchor="middle">verify_block_refills</text>
+    <text class="cco-ann" x="320" y="97" text-anchor="middle">helios → finalized check</text>
+    <text class="cco-ann" x="320" y="109" text-anchor="middle">per new mint row</text>
+  </g>
+  <g class="cco-stage cco-stage-3">
+    <rect x="430" y="55" width="170" height="60" rx="6"/>
+    <text class="cco-lbl" x="515" y="80" text-anchor="middle">StateRoot.compute</text>
+    <text class="cco-ann" x="515" y="97" text-anchor="middle">includes bridge_mints_root</text>
+    <text class="cco-ann" x="515" y="109" text-anchor="middle">over all four tables</text>
+  </g>
+  <line class="cco-arr" x1="210" y1="85" x2="232" y2="85"/>
+  <polygon class="cco-arr-head" points="232,85 226,82 226,88"/>
+  <line class="cco-arr" x1="405" y1="85" x2="427" y2="85"/>
+  <polygon class="cco-arr-head" points="427,85 421,82 421,88"/>
+  <text class="cco-ann" x="320" y="160" text-anchor="middle">Failure at any stage rolls back the whole block. No partial state, no external side effect.</text>
+</svg>
+
 ## Helios — what "Ethereum RPC" actually means
 
 The verifier does not trust an Infura endpoint. `eth_getTransactionReceipt` and `eth_getBlockByNumber` from a remote RPC are RPC-level: the response could be anything the operator of that endpoint wants. A bridge that trusts a remote RPC for finality has, in effect, signed away its security to whoever runs that endpoint.
@@ -119,6 +168,91 @@ end
 `Chain.Verifier.EthereumRpc.HTTP` makes real JSON-RPC calls against `:chain, :ethereum_rpc_url`, which in production points at a helios process running on the same host. `Chain.Verifier.EthereumRpc.Stub` returns a configurable canned response for tests. Selection is via `:chain, :ethereum_rpc_module` and is **fail-closed**: there is no compile-time default. If the application boots without `ETHEREUM_RPC_URL` set in production or without an explicit Stub configuration in tests, the verifier raises with a descriptive message rather than silently accepting any refill mint.
 
 ## Bridge-in / bridge-out walkthrough
+
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 460" role="img" aria-labelledby="bgi-title bgi-desc" style="width:100%;height:auto;max-width:640px;display:block;margin:1.5rem auto">
+  <title id="bgi-title">Bridge-in sequence (Ethereum → 2D)</title>
+  <desc id="bgi-desc">Six-step sequence diagram. Alice locks USDC on the Ethereum HTLC contract. The operator observes the event after finality, submits refill_mint on 2D, and locks the equivalent USD-stable on the 2D HTLC for Alice. Alice claims on 2D using the preimage; the operator then uses that preimage to claim the original USDC on Ethereum.</desc>
+  <style>
+    .bgi-lbl { font-family: ui-monospace,'SF Mono','JetBrains Mono',monospace; font-size: 11px; fill: currentColor; }
+    .bgi-num { font-family: ui-sans-serif,system-ui,sans-serif; font-size: 11px; font-weight: 700; fill: currentColor; }
+    .bgi-ann { font-family: ui-sans-serif,system-ui,sans-serif; font-size: 9px; fill: currentColor; opacity: 0.7; }
+    .bgi-hdr { font-family: ui-sans-serif,system-ui,sans-serif; font-size: 12px; font-weight: 600; fill: currentColor; }
+    .bgi-actor { stroke: currentColor; stroke-width: 1.2; fill: none; }
+    .bgi-life  { stroke: currentColor; stroke-width: 1; stroke-dasharray: 3 4; opacity: 0.35; }
+    .bgi-step          { opacity: 0.25; }
+    .bgi-step line     { stroke: currentColor; stroke-width: 2; fill: none; }
+    .bgi-step polygon  { fill: currentColor; }
+    @keyframes bgi-pop {
+      0%, 14% { opacity: 1; }
+      15%, 100% { opacity: 0.22; }
+    }
+    .bgi-step-1 { animation: bgi-pop 12s infinite  0s; }
+    .bgi-step-2 { animation: bgi-pop 12s infinite  2s; }
+    .bgi-step-3 { animation: bgi-pop 12s infinite  4s; }
+    .bgi-step-4 { animation: bgi-pop 12s infinite  6s; }
+    .bgi-step-5 { animation: bgi-pop 12s infinite  8s; }
+    .bgi-step-6 { animation: bgi-pop 12s infinite 10s; }
+    @media (prefers-reduced-motion: reduce) {
+      .bgi-step { opacity: 1; animation: none; }
+    }
+  </style>
+  <rect class="bgi-actor" x="20"  y="10" width="120" height="36" rx="4"/>
+  <text class="bgi-hdr" x="80"  y="33" text-anchor="middle">Alice</text>
+  <rect class="bgi-actor" x="180" y="10" width="120" height="36" rx="4"/>
+  <text class="bgi-hdr" x="240" y="27" text-anchor="middle">Ethereum</text>
+  <text class="bgi-hdr" x="240" y="41" text-anchor="middle">HTLC</text>
+  <rect class="bgi-actor" x="340" y="10" width="120" height="36" rx="4"/>
+  <text class="bgi-hdr" x="400" y="33" text-anchor="middle">Operator</text>
+  <rect class="bgi-actor" x="500" y="10" width="120" height="36" rx="4"/>
+  <text class="bgi-hdr" x="560" y="27" text-anchor="middle">2D</text>
+  <text class="bgi-hdr" x="560" y="41" text-anchor="middle">precompiles</text>
+  <line class="bgi-life" x1="80"  y1="50" x2="80"  y2="450"/>
+  <line class="bgi-life" x1="240" y1="50" x2="240" y2="450"/>
+  <line class="bgi-life" x1="400" y1="50" x2="400" y2="450"/>
+  <line class="bgi-life" x1="560" y1="50" x2="560" y2="450"/>
+  <g class="bgi-step bgi-step-1">
+    <text class="bgi-num" x="22" y="98" text-anchor="start">1.</text>
+    <line x1="84" y1="95" x2="234" y2="95"/>
+    <polygon points="234,95 226,91 226,99"/>
+    <text class="bgi-lbl" x="159" y="88" text-anchor="middle">lock(hash, USDC, deadline)</text>
+  </g>
+  <g class="bgi-step bgi-step-2">
+    <text class="bgi-num" x="22" y="155" text-anchor="start">2.</text>
+    <line x1="244" y1="148" x2="394" y2="148"/>
+    <polygon points="394,148 386,144 386,152"/>
+    <text class="bgi-lbl" x="319" y="141" text-anchor="middle">Locked event observed</text>
+    <text class="bgi-ann" x="319" y="163" text-anchor="middle">at finalized block, ~12-15 min</text>
+  </g>
+  <g class="bgi-step bgi-step-3">
+    <text class="bgi-num" x="22" y="218" text-anchor="start">3.</text>
+    <line x1="404" y1="211" x2="554" y2="211"/>
+    <polygon points="554,211 546,207 546,215"/>
+    <text class="bgi-lbl" x="479" y="204" text-anchor="middle">refill_mint(triple, amount)</text>
+    <text class="bgi-ann" x="479" y="226" text-anchor="middle">verifier rechecks via helios</text>
+  </g>
+  <g class="bgi-step bgi-step-4">
+    <text class="bgi-num" x="22" y="285" text-anchor="start">4.</text>
+    <line x1="404" y1="278" x2="554" y2="278"/>
+    <polygon points="554,278 546,274 546,282"/>
+    <text class="bgi-lbl" x="479" y="266" text-anchor="middle">lock(hash, Alice,</text>
+    <text class="bgi-lbl" x="479" y="278" text-anchor="middle">amount, deadline)</text>
+    <text class="bgi-ann" x="479" y="296" text-anchor="middle">on the 2D HTLC</text>
+  </g>
+  <g class="bgi-step bgi-step-5">
+    <text class="bgi-num" x="22" y="350" text-anchor="start">5.</text>
+    <line x1="84" y1="343" x2="554" y2="343"/>
+    <polygon points="554,343 546,339 546,347"/>
+    <text class="bgi-lbl" x="319" y="336" text-anchor="middle">claim(preimage)</text>
+    <text class="bgi-ann" x="319" y="358" text-anchor="middle">P revealed on 2D chain</text>
+  </g>
+  <g class="bgi-step bgi-step-6">
+    <text class="bgi-num" x="22" y="412" text-anchor="start">6.</text>
+    <line x1="396" y1="405" x2="246" y2="405"/>
+    <polygon points="246,405 254,401 254,409"/>
+    <text class="bgi-lbl" x="321" y="398" text-anchor="middle">claim(preimage)</text>
+    <text class="bgi-ann" x="321" y="420" text-anchor="middle">operator recovers original USDC</text>
+  </g>
+</svg>
 
 Bridge-in (Ethereum → 2D):
 
