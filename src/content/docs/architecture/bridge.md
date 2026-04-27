@@ -97,53 +97,156 @@ A failure on any row aborts the block as `:unbacked_refill_mint`. The verifier r
 
 The ordering is load-bearing. The check runs **after** `BlockExecutor.execute_transactions` (so the new `bridge_mints` rows are visible inside the same SERIALIZABLE transaction) and **before** `Chain.StateRoot.compute`. Producer trust at include-time, verifier authority at finality. A compromised producer that includes an unbacked refill never reaches an honest user; every honest verifier rejects the block.
 
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 180" role="img" aria-labelledby="cco-title cco-desc" style="width:100%;height:auto;max-width:640px;display:block;margin:1.5rem auto">
-  <title id="cco-title">Cross-chain check ordering inside the verifier</title>
-  <desc id="cco-desc">Three stages run in fixed order inside one SERIALIZABLE block-execution transaction: execute_transactions, then verify_block_refills via helios, then StateRoot.compute. Failure at any stage rolls back the whole block.</desc>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 300" role="img" aria-labelledby="cco-title cco-desc" style="width:100%;height:auto;max-width:720px;display:block;margin:1.5rem auto">
+  <title id="cco-title">Cross-chain check ordering inside the verifier (animated)</title>
+  <desc id="cco-desc">Twelve-second loop. A candidate block flows left-to-right through three stages inside one SERIALIZABLE transaction. (1) execute_transactions applies the batch and inserts bridge_mints rows. (2) verify_block_refills queries the local helios sidecar to re-confirm each cited Ethereum event; the marching dashes between Stage 2 and helios visualise the query/response. (3) StateRoot.compute folds the rows into the state root, which appears as a badge on the block. (4) The block exits and a check-mark lights up to mark the commit.</desc>
   <style>
-    .cco-lbl  { font-family: ui-monospace,'SF Mono','JetBrains Mono',monospace; font-size: 12px; font-weight: 600; fill: currentColor; }
-    .cco-ann  { font-family: ui-sans-serif,system-ui,sans-serif; font-size: 10px; fill: currentColor; opacity: 0.75; }
-    .cco-frame{ font-family: ui-sans-serif,system-ui,sans-serif; font-size: 10px; fill: currentColor; opacity: 0.6; font-style: italic; }
-    .cco-stage rect { stroke: currentColor; stroke-width: 1.5; fill: none; }
-    .cco-stage      { opacity: 0.3; }
-    .cco-arr        { stroke: currentColor; stroke-width: 1.5; fill: none; opacity: 0.5; }
-    .cco-arr-head   { fill: currentColor; opacity: 0.5; }
-    @keyframes cco-pop {
-      0%, 28% { opacity: 1; }
-      28.5%, 100% { opacity: 0.3; }
+    .cco-frame      { fill: none; stroke: currentColor; stroke-width: 1; stroke-dasharray: 4 4; opacity: 0.3; }
+    .cco-frame-lbl  { font-family: ui-sans-serif, system-ui, sans-serif; font-size: 10px; fill: currentColor; opacity: 0.6; font-style: italic; }
+    .cco-helios-box { fill: currentColor; fill-opacity: 0.05; stroke: currentColor; stroke-width: 1.5; }
+    .cco-helios-lbl { font-family: ui-sans-serif, system-ui, sans-serif; font-size: 11px; font-weight: 700; fill: currentColor; }
+    .cco-helios-sub { font-family: ui-sans-serif, system-ui, sans-serif; font-size: 9px; fill: currentColor; opacity: 0.65; }
+    .cco-helios-tag { font-family: ui-sans-serif, system-ui, sans-serif; font-size: 9px; fill: currentColor; opacity: 0.6; }
+    .cco-stage rect { fill: currentColor; fill-opacity: 0.04; stroke: currentColor; stroke-width: 1.5; }
+    .cco-stage-lbl  { font-family: ui-monospace, 'SF Mono', monospace; font-size: 11px; font-weight: 700; fill: currentColor; }
+    .cco-stage-sub  { font-family: ui-sans-serif, system-ui, sans-serif; font-size: 9px; fill: currentColor; opacity: 0.7; }
+    .cco-stage      { opacity: 0.4; }
+    @keyframes cco-stage-on { 0%, 24% { opacity: 1; } 25%, 100% { opacity: 0.4; } }
+    .cco-stage-1 { animation: cco-stage-on 12s infinite  0s; }
+    .cco-stage-2 { animation: cco-stage-on 12s infinite  3s; }
+    .cco-stage-3 { animation: cco-stage-on 12s infinite  6s; }
+    .cco-arr      { stroke: currentColor; stroke-width: 1.5; fill: none; opacity: 0.4; }
+    .cco-arr-head { fill: currentColor; opacity: 0.4; }
+    .cco-helios-conn { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-dasharray: 6 4; opacity: 0; animation: cco-march 0.8s linear infinite, cco-helios-show 12s linear infinite; }
+    @keyframes cco-march        { to { stroke-dashoffset: -10; } }
+    @keyframes cco-helios-show  { 0%, 24% { opacity: 0; } 26%, 49% { opacity: 0.85; } 50%, 100% { opacity: 0; } }
+    .cco-helios-q-lbl { font-family: ui-sans-serif, system-ui, sans-serif; font-size: 8.5px; font-weight: 700; fill: currentColor; opacity: 0; animation: cco-helios-show 12s linear infinite; }
+    .cco-block-body  { fill: currentColor; fill-opacity: 0.09; stroke: currentColor; stroke-width: 1.6; }
+    .cco-block-row   { stroke: currentColor; stroke-width: 1; opacity: 0.55; }
+    .cco-block-lbl   { font-family: ui-sans-serif, system-ui, sans-serif; font-size: 9px; font-weight: 700; fill: currentColor; }
+    .cco-block       { transform-box: fill-box; animation: cco-block-flow 12s infinite ease-in-out; }
+    @keyframes cco-block-flow {
+      0%      { transform: translate(0, 0);     opacity: 0; }
+      4%      { transform: translate(0, 0);     opacity: 1; }
+      12.5%   { transform: translate(105px, 0); opacity: 1; }
+      25%     { transform: translate(105px, 0); opacity: 1; }
+      37.5%   { transform: translate(320px, 0); opacity: 1; }
+      50%     { transform: translate(320px, 0); opacity: 1; }
+      62.5%   { transform: translate(535px, 0); opacity: 1; }
+      75%     { transform: translate(535px, 0); opacity: 1; }
+      87.5%   { transform: translate(660px, 0); opacity: 1; }
+      98%     { transform: translate(660px, 0); opacity: 1; }
+      100%    { transform: translate(660px, 0); opacity: 0; }
     }
-    .cco-stage-1 { animation: cco-pop 6s infinite 0s; }
-    .cco-stage-2 { animation: cco-pop 6s infinite 2s; }
-    .cco-stage-3 { animation: cco-pop 6s infinite 4s; }
+    .cco-sroot       { opacity: 0; animation: cco-sroot-show 12s infinite; }
+    .cco-sroot rect  { fill: #4a8e58; stroke: #336940; stroke-width: 1; }
+    .cco-sroot text  { font-family: ui-sans-serif, system-ui, sans-serif; font-size: 8.5px; font-weight: 700; fill: #fff; }
+    @keyframes cco-sroot-show { 0%, 70% { opacity: 0; } 72%, 99% { opacity: 1; } 100% { opacity: 0; } }
+    .cco-rows         { opacity: 0; animation: cco-rows-show 12s infinite; }
+    .cco-rows rect    { fill: #c0584a; fill-opacity: 0.65; stroke: #8c3e33; stroke-width: 0.8; }
+    @keyframes cco-rows-show { 0%, 8% { opacity: 0; } 12%, 65% { opacity: 1; } 70%, 100% { opacity: 0; } }
+    .cco-commit       { opacity: 0; transform-box: fill-box; transform-origin: center; animation: cco-commit-show 12s infinite; }
+    @keyframes cco-commit-show {
+      0%, 85%   { opacity: 0; transform: scale(0.7); }
+      88%       { opacity: 1; transform: scale(1.2); }
+      92%, 99%  { opacity: 1; transform: scale(1); }
+      100%      { opacity: 0; transform: scale(1); }
+    }
+    .cco-cap   { font-family: ui-sans-serif, system-ui, sans-serif; font-size: 11px; fill: currentColor; opacity: 0; }
+    @keyframes cco-cap-on { 0%, 22% { opacity: 0.9; } 24%, 100% { opacity: 0; } }
+    .cco-cap-1 { animation: cco-cap-on 12s infinite  0s; }
+    .cco-cap-2 { animation: cco-cap-on 12s infinite  3s; }
+    .cco-cap-3 { animation: cco-cap-on 12s infinite  6s; }
+    .cco-cap-4 { animation: cco-cap-on 12s infinite  9s; }
     @media (prefers-reduced-motion: reduce) {
-      .cco-stage { opacity: 1; animation: none; }
+      .cco-stage-1, .cco-stage-2, .cco-stage-3,
+      .cco-helios-conn, .cco-helios-q-lbl,
+      .cco-block, .cco-sroot, .cco-rows, .cco-commit,
+      .cco-cap-1, .cco-cap-2, .cco-cap-3, .cco-cap-4 { animation: none; }
+      .cco-stage { opacity: 1; }
+      .cco-block { transform: translate(320px, 0); opacity: 1; }
+      .cco-rows  { opacity: 1; }
+      .cco-cap-2 { opacity: 0.9; }
     }
   </style>
-  <text class="cco-frame" x="320" y="18" text-anchor="middle">inside one SERIALIZABLE block-execution transaction</text>
-  <rect x="20" y="30" width="600" height="105" rx="4" stroke="currentColor" stroke-width="1" stroke-dasharray="4 4" fill="none" opacity="0.3"/>
+
+  <!-- Helios sidecar (top centre) -->
+  <rect class="cco-helios-box" x="280" y="15" width="160" height="50" rx="6"/>
+  <text class="cco-helios-lbl" x="360" y="36" text-anchor="middle">helios sidecar</text>
+  <text class="cco-helios-sub" x="360" y="52" text-anchor="middle">light-client-verified eth_*</text>
+
+  <!-- Helios query / response (active during phase 2) -->
+  <path class="cco-helios-conn" d="M 335 145 L 335 65"/>
+  <path class="cco-helios-conn" d="M 385 65 L 385 145"/>
+  <text class="cco-helios-q-lbl" x="318" y="108" text-anchor="end">↑ query</text>
+  <text class="cco-helios-q-lbl" x="402" y="108" text-anchor="start">↓ response</text>
+
+  <!-- Frame label and frame around the three stages -->
+  <text class="cco-frame-lbl" x="360" y="130" text-anchor="middle">inside one SERIALIZABLE block-execution transaction</text>
+  <rect class="cco-frame" x="50" y="140" width="620" height="100" rx="6"/>
+
+  <!-- Stage 1 -->
   <g class="cco-stage cco-stage-1">
-    <rect x="40" y="55" width="170" height="60" rx="6"/>
-    <text class="cco-lbl" x="125" y="80" text-anchor="middle">execute_transactions</text>
-    <text class="cco-ann" x="125" y="97" text-anchor="middle">credits, debits, inserts</text>
-    <text class="cco-ann" x="125" y="109" text-anchor="middle">new bridge_mints rows</text>
+    <rect x="70" y="155" width="150" height="70" rx="6"/>
+    <text class="cco-stage-lbl" x="145" y="178" text-anchor="middle">execute_transactions</text>
+    <text class="cco-stage-sub" x="145" y="196" text-anchor="middle">apply tx batch,</text>
+    <text class="cco-stage-sub" x="145" y="208" text-anchor="middle">insert bridge_mints rows</text>
   </g>
+  <!-- Stage 2 -->
   <g class="cco-stage cco-stage-2">
-    <rect x="235" y="55" width="170" height="60" rx="6"/>
-    <text class="cco-lbl" x="320" y="80" text-anchor="middle">verify_block_refills</text>
-    <text class="cco-ann" x="320" y="97" text-anchor="middle">helios → finalized check</text>
-    <text class="cco-ann" x="320" y="109" text-anchor="middle">per new mint row</text>
+    <rect x="285" y="155" width="150" height="70" rx="6"/>
+    <text class="cco-stage-lbl" x="360" y="178" text-anchor="middle">verify_block_refills</text>
+    <text class="cco-stage-sub" x="360" y="196" text-anchor="middle">re-check each row</text>
+    <text class="cco-stage-sub" x="360" y="208" text-anchor="middle">via helios → finalized</text>
   </g>
+  <!-- Stage 3 -->
   <g class="cco-stage cco-stage-3">
-    <rect x="430" y="55" width="170" height="60" rx="6"/>
-    <text class="cco-lbl" x="515" y="80" text-anchor="middle">StateRoot.compute</text>
-    <text class="cco-ann" x="515" y="97" text-anchor="middle">includes bridge_mints_root</text>
-    <text class="cco-ann" x="515" y="109" text-anchor="middle">over all four tables</text>
+    <rect x="500" y="155" width="150" height="70" rx="6"/>
+    <text class="cco-stage-lbl" x="575" y="178" text-anchor="middle">StateRoot.compute</text>
+    <text class="cco-stage-sub" x="575" y="196" text-anchor="middle">fold all four tables</text>
+    <text class="cco-stage-sub" x="575" y="208" text-anchor="middle">into one keccak root</text>
   </g>
-  <line class="cco-arr" x1="210" y1="85" x2="232" y2="85"/>
-  <polygon class="cco-arr-head" points="232,85 226,82 226,88"/>
-  <line class="cco-arr" x1="405" y1="85" x2="427" y2="85"/>
-  <polygon class="cco-arr-head" points="427,85 421,82 421,88"/>
-  <text class="cco-ann" x="320" y="160" text-anchor="middle">Failure at any stage rolls back the whole block. No partial state, no external side effect.</text>
+
+  <!-- Inter-stage arrows -->
+  <line class="cco-arr" x1="225" y1="190" x2="280" y2="190"/>
+  <polygon class="cco-arr-head" points="280,190 274,187 274,193"/>
+  <line class="cco-arr" x1="440" y1="190" x2="495" y2="190"/>
+  <polygon class="cco-arr-head" points="495,190 489,187 489,193"/>
+
+  <!-- Block packet (animated through stages) -->
+  <g class="cco-block">
+    <rect class="cco-block-body" x="20" y="174" width="40" height="32" rx="4"/>
+    <line class="cco-block-row" x1="26" y1="182" x2="54" y2="182"/>
+    <line class="cco-block-row" x1="26" y1="188" x2="54" y2="188"/>
+    <line class="cco-block-row" x1="26" y1="194" x2="54" y2="194"/>
+    <line class="cco-block-row" x1="26" y1="200" x2="54" y2="200"/>
+    <text class="cco-block-lbl" x="40" y="222" text-anchor="middle">candidate</text>
+
+    <!-- bridge_mints rows badge (visible while block is in S1/S2) -->
+    <g class="cco-rows">
+      <rect x="22" y="184" width="36" height="3" rx="1"/>
+      <rect x="22" y="190" width="36" height="3" rx="1"/>
+      <rect x="22" y="196" width="36" height="3" rx="1"/>
+    </g>
+
+    <!-- state_root badge (appears when block reaches S3) -->
+    <g class="cco-sroot">
+      <rect x="14" y="156" width="52" height="14" rx="3"/>
+      <text x="40" y="166" text-anchor="middle">state_root</text>
+    </g>
+  </g>
+
+  <!-- Committed indicator (right side, lights up at the end) -->
+  <g class="cco-commit">
+    <circle cx="700" cy="190" r="14" fill="#4a8e58" stroke="#336940" stroke-width="1.5"/>
+    <path d="M 694 190 L 698 195 L 706 184" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+
+  <!-- Phase captions -->
+  <text class="cco-cap cco-cap-1" x="360" y="280" text-anchor="middle">1. Candidate block enters; verifier replays its transactions and inserts new bridge_mints rows.</text>
+  <text class="cco-cap cco-cap-2" x="360" y="280" text-anchor="middle">2. For each new row, verifier asks helios: is the cited Ethereum event real and finalized?</text>
+  <text class="cco-cap cco-cap-3" x="360" y="280" text-anchor="middle">3. State root folds in all four tables — including bridge_mints — into one keccak digest.</text>
+  <text class="cco-cap cco-cap-4" x="360" y="280" text-anchor="middle">4. Computed root matches the producer's claim. Block committed.</text>
 </svg>
 
 ## Helios — what "Ethereum RPC" actually means
