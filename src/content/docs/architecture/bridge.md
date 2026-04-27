@@ -124,20 +124,7 @@ The ordering is load-bearing. The check runs **after** `BlockExecutor.execute_tr
     .cco-block-body  { fill: currentColor; fill-opacity: 0.09; stroke: currentColor; stroke-width: 1.6; }
     .cco-block-row   { stroke: currentColor; stroke-width: 1; opacity: 0.55; }
     .cco-block-lbl   { font-family: ui-sans-serif, system-ui, sans-serif; font-size: 9px; font-weight: 700; fill: currentColor; }
-    .cco-block       { transform-box: fill-box; animation: cco-block-flow 12s infinite ease-in-out; }
-    @keyframes cco-block-flow {
-      0%      { transform: translate(0, 0);     opacity: 0; }
-      4%      { transform: translate(0, 0);     opacity: 1; }
-      12.5%   { transform: translate(105, 0); opacity: 1; }
-      25%     { transform: translate(105, 0); opacity: 1; }
-      37.5%   { transform: translate(320, 0); opacity: 1; }
-      50%     { transform: translate(320, 0); opacity: 1; }
-      62.5%   { transform: translate(535, 0); opacity: 1; }
-      75%     { transform: translate(535, 0); opacity: 1; }
-      87.5%   { transform: translate(660, 0); opacity: 1; }
-      98%     { transform: translate(660, 0); opacity: 1; }
-      100%    { transform: translate(660, 0); opacity: 0; }
-    }
+    .cco-block       { }
     .cco-sroot       { opacity: 0; animation: cco-sroot-show 12s infinite; }
     .cco-sroot rect  { fill: #4a8e58; stroke: #336940; stroke-width: 1; }
     .cco-sroot text  { font-family: ui-sans-serif, system-ui, sans-serif; font-size: 8.5px; font-weight: 700; fill: #fff; }
@@ -161,10 +148,9 @@ The ordering is load-bearing. The check runs **after** `BlockExecutor.execute_tr
     @media (prefers-reduced-motion: reduce) {
       .cco-stage-1, .cco-stage-2, .cco-stage-3,
       .cco-helios-conn, .cco-helios-q-lbl,
-      .cco-block, .cco-sroot, .cco-rows, .cco-commit,
+      .cco-sroot, .cco-rows, .cco-commit,
       .cco-cap-1, .cco-cap-2, .cco-cap-3, .cco-cap-4 { animation: none; }
       .cco-stage { opacity: 1; }
-      .cco-block { transform: translate(320, 0); opacity: 1; }
       .cco-rows  { opacity: 1; }
       .cco-cap-2 { opacity: 0.9; }
     }
@@ -221,6 +207,8 @@ The ordering is load-bearing. The check runs **after** `BlockExecutor.execute_tr
     <line class="cco-block-row" x1="26" y1="194" x2="54" y2="194"/>
     <line class="cco-block-row" x1="26" y1="200" x2="54" y2="200"/>
     <text class="cco-block-lbl" x="40" y="222" text-anchor="middle">candidate</text>
+    <animateTransform attributeName="transform" type="translate" values="0 0;0 0;105 0;105 0;320 0;320 0;535 0;535 0;660 0;660 0;660 0" keyTimes="0;0.04;0.125;0.25;0.375;0.5;0.625;0.75;0.875;0.98;1" dur="12s" repeatCount="indefinite" calcMode="spline" keySplines="0.42 0 0.58 1;0.42 0 0.58 1;0.42 0 0.58 1;0.42 0 0.58 1;0.42 0 0.58 1;0.42 0 0.58 1;0.42 0 0.58 1;0.42 0 0.58 1;0.42 0 0.58 1;0.42 0 0.58 1"/>
+    <animate attributeName="opacity" values="0;1;1;1;0" keyTimes="0;0.04;0.98;0.99;1" dur="12s" repeatCount="indefinite"/>
 
     <!-- bridge_mints rows badge (visible while block is in S1/S2) -->
     <g class="cco-rows">
@@ -305,29 +293,9 @@ end
     @keyframes bgi-pre-2d   { 0%, 73%   { opacity: 0; } 75%, 99% { opacity: 1; } 100%      { opacity: 0; } }
     @keyframes bgi-pre-op   { 0%, 77%   { opacity: 0; } 79%, 89% { opacity: 1; } 91%, 100% { opacity: 0; } }
     @keyframes bgi-pre-eth  { 0%, 84%   { opacity: 0; } 86%, 99% { opacity: 1; } 100%      { opacity: 0; } }
-    .bgi-tok          { transform-box: fill-box; }
     .bgi-tok text     { font-family: ui-sans-serif, system-ui, sans-serif; font-size: 8px; font-weight: 700; fill: #fff; pointer-events: none; }
     .bgi-tok-usdc circle { fill: #4d8fc9; stroke: #2c5e88; stroke-width: 1; filter: drop-shadow(0 0 3px rgba(77,143,201,0.55)); }
     .bgi-tok-usd  circle { fill: #e8b33d; stroke: #b88718; stroke-width: 1; filter: drop-shadow(0 0 3px rgba(232,179,61,0.55)); }
-    .bgi-tok-usdc { animation: bgi-usdc-flow 18s infinite ease-in-out; }
-    .bgi-tok-usd  { animation: bgi-usd-flow  18s infinite ease-in-out; }
-    @keyframes bgi-usdc-flow {
-      0%      { transform: translate(0, 0);     opacity: 0; }
-      2%      { transform: translate(0, 0);     opacity: 1; }
-      16.67%  { transform: translate(270, 0); opacity: 1; }
-      83%     { transform: translate(270, 0); opacity: 1; }
-      97%     { transform: translate(540, 0); opacity: 1; }
-      100%    { transform: translate(540, 0); opacity: 0; }
-    }
-    @keyframes bgi-usd-flow {
-      0%, 33%   { transform: translate(0, 0);      opacity: 0; }
-      36%       { transform: translate(0, 0);      opacity: 1; }
-      66.67%    { transform: translate(-270, 0); opacity: 1; }
-      74%       { transform: translate(-270, 0); opacity: 1; }
-      83.33%    { transform: translate(-540, 0); opacity: 1; }
-      97%       { transform: translate(-540, 0); opacity: 1; }
-      100%      { transform: translate(-540, 0); opacity: 0; }
-    }
     .bgi-dot      { fill: currentColor; opacity: 0.22; transform-box: fill-box; transform-origin: center; }
     @keyframes bgi-dot-on { 0%, 14% { opacity: 1; transform: scale(1.35); } 16%, 100% { opacity: 0.22; transform: scale(1); } }
     .bgi-dot-1 { animation: bgi-dot-on 18s infinite  0s; }
@@ -345,11 +313,9 @@ end
     .bgi-cap-5 { animation: bgi-cap-on 18s infinite 12s; }
     .bgi-cap-6 { animation: bgi-cap-on 18s infinite 15s; }
     @media (prefers-reduced-motion: reduce) {
-      .bgi-tok-usdc, .bgi-tok-usd, .bgi-op-halo, .bgi-dot,
+      .bgi-op-halo, .bgi-dot,
       .bgi-hash-eth, .bgi-hash-2d, .bgi-pre-2d, .bgi-pre-op, .bgi-pre-eth,
       .bgi-cap-1, .bgi-cap-2, .bgi-cap-3, .bgi-cap-4, .bgi-cap-5, .bgi-cap-6 { animation: none; }
-      .bgi-tok-usdc { transform: translate(270, 0); opacity: 1; }
-      .bgi-tok-usd  { transform: translate(-270, 0); opacity: 1; }
       .bgi-dot { opacity: 0.45; }
       .bgi-hash-eth, .bgi-hash-2d { opacity: 1; }
       .bgi-cap-1 { opacity: 0.9; }
@@ -449,12 +415,16 @@ end
   <g class="bgi-tok bgi-tok-usdc">
     <circle cx="90" cy="120" r="14"/>
     <text x="90" y="123" text-anchor="middle">USDC</text>
+    <animateTransform attributeName="transform" type="translate" values="0 0;0 0;270 0;270 0;540 0;540 0" keyTimes="0;0.02;0.1667;0.83;0.97;1" dur="18s" repeatCount="indefinite" calcMode="spline" keySplines="0.42 0 0.58 1;0.42 0 0.58 1;0.42 0 0.58 1;0.42 0 0.58 1;0.42 0 0.58 1"/>
+    <animate attributeName="opacity" values="0;1;1;1;0" keyTimes="0;0.02;0.97;0.99;1" dur="18s" repeatCount="indefinite"/>
   </g>
 
   <!-- USD-stable token (materialises at Op pool on 2D, ends at Alice on 2D) -->
   <g class="bgi-tok bgi-tok-usd">
     <circle cx="630" cy="420" r="14"/>
     <text x="630" y="423" text-anchor="middle">USD</text>
+    <animateTransform attributeName="transform" type="translate" values="0 0;0 0;0 0;-270 0;-270 0;-540 0;-540 0;-540 0" keyTimes="0;0.33;0.36;0.6667;0.74;0.8333;0.97;1" dur="18s" repeatCount="indefinite" calcMode="spline" keySplines="0.42 0 0.58 1;0.42 0 0.58 1;0.42 0 0.58 1;0.42 0 0.58 1;0.42 0 0.58 1;0.42 0 0.58 1;0.42 0 0.58 1"/>
+    <animate attributeName="opacity" values="0;0;1;1;1;0" keyTimes="0;0.33;0.36;0.97;0.99;1" dur="18s" repeatCount="indefinite"/>
   </g>
 
   <!-- Phase captions (one visible at a time, bottom of frame) -->
