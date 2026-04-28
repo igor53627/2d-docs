@@ -1,157 +1,104 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg style="background:transparent" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 240">
-  <title>Bridge-in: Ethereum → 2D</title>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 440">
   <style>
-    :root { --c: #333; --c2: rgba(50,50,50,0.1); }
-    @media (prefers-color-scheme: dark) { :root { --c: #ccc; --c2: rgba(200,200,200,0.08); } }
+    :root { --c: #333; --dim: .25; }
+    @media (prefers-color-scheme: dark) { :root { --c: #ccc; } }
     text { font-family: ui-sans-serif, system-ui, sans-serif; fill: var(--c); }
-
-    .actor    { fill: var(--c2); stroke: var(--c); stroke-width: 1.4; }
-    .lbl      { font-size: 13px; font-weight: 600; }
-    .sub      { font-size: 10px; opacity: .55; }
-    .vault    { fill: var(--c2); stroke: var(--c); stroke-width: 1.8; rx: 8; }
-    .vault-lbl{ font-size: 14px; font-weight: 700; }
-    .conn     { fill: none; stroke: var(--c); stroke-width: 1; stroke-dasharray: 4 4; opacity: .25; }
-
-    /* tokens */
-    .tok text { font-size: 10px; font-weight: 700; fill: #fff; }
-    .usdc circle { fill: #4d8fc9; stroke: #2c5e88; stroke-width: 1; }
-    .usd  circle { fill: #d4a017; stroke: #a67c10; stroke-width: 1; }
-
-    /* hash / preimage badges */
-    .badge      { opacity: 0; }
-    .badge rect { rx: 4; }
-    .badge text { font-size: 11px; font-weight: 700; fill: #fff; }
-    .hash rect  { fill: #b85450; stroke: #8c3e3a; stroke-width: 1; }
-    .pre  rect  { fill: #3d8b50; stroke: #2c6e3c; stroke-width: 1; }
-
-    /* hash on ETH HTLC: visible phases 1-5 */
-    .h-eth { animation: h-eth 18s infinite; }
-    @keyframes h-eth { 0%,15%{ opacity:0; } 17%,82%{ opacity:1; } 85%,100%{ opacity:0; } }
-
-    /* hash on 2D HTLC: visible phases 4-5 start */
-    .h-2d { animation: h-2d 18s infinite; }
-    @keyframes h-2d { 0%,48%{ opacity:0; } 52%,70%{ opacity:1; } 73%,100%{ opacity:0; } }
-
-    /* preimage on 2D HTLC: replaces hash in phase 5 */
-    .p-2d { animation: p-2d 18s infinite; }
-    @keyframes p-2d { 0%,70%{ opacity:0; } 74%,96%{ opacity:1; } 100%{ opacity:0; } }
-
-    /* preimage on ETH HTLC: phase 6 */
-    .p-eth { animation: p-eth 18s infinite; }
-    @keyframes p-eth { 0%,82%{ opacity:0; } 85%,96%{ opacity:1; } 100%{ opacity:0; } }
-
-    /* captions */
-    .cap { font-size: 13px; opacity: 0; }
-    @keyframes cap { 0%,14%{ opacity:.85; } 16%,100%{ opacity:0; } }
-    .c1 { animation: cap 18s infinite  0s; }
-    .c2 { animation: cap 18s infinite  3s; }
-    .c3 { animation: cap 18s infinite  6s; }
-    .c4 { animation: cap 18s infinite  9s; }
-    .c5 { animation: cap 18s infinite 12s; }
-    .c6 { animation: cap 18s infinite 15s; }
-
-    /* step dots */
-    .dot { fill: var(--c); opacity: .2; }
-    @keyframes dot { 0%,14%{ opacity:1; r:5; } 16%,100%{ opacity:.2; r:4; } }
-    .d1 { animation: dot 18s infinite  0s; }
-    .d2 { animation: dot 18s infinite  3s; }
-    .d3 { animation: dot 18s infinite  6s; }
-    .d4 { animation: dot 18s infinite  9s; }
-    .d5 { animation: dot 18s infinite 12s; }
-    .d6 { animation: dot 18s infinite 15s; }
+    .row { opacity: var(--dim); }
+    @keyframes hi { 0%,14%{ opacity:1; } 16%,100%{ opacity:var(--dim); } }
+    .r1 { animation: hi 18s infinite  0s; }
+    .r2 { animation: hi 18s infinite  3s; }
+    .r3 { animation: hi 18s infinite  6s; }
+    .r4 { animation: hi 18s infinite  9s; }
+    .r5 { animation: hi 18s infinite 12s; }
+    .r6 { animation: hi 18s infinite 15s; }
+    .actor { font-size: 15px; font-weight: 700; }
+    .desc  { font-size: 13px; opacity: .75; }
+    .num   { font-size: 13px; font-weight: 700; opacity: .5; }
+    .arr   { stroke: var(--c); stroke-width: 1.8; fill: none; marker-end: url(#ah); }
+    .tok   { font-size: 11px; font-weight: 700; fill: #fff; }
+    .usdc  { fill: #4d8fc9; }
+    .usd   { fill: #d4a017; }
+    .hash  { fill: #b85450; }
+    .pre   { fill: #3d8b50; }
+    .badge { font-size: 11px; font-weight: 700; fill: #fff; }
   </style>
+  <defs>
+    <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto" fill="var(--c)">
+      <path d="M 0 0 L 10 5 L 0 10 z"/>
+    </marker>
+  </defs>
 
-  <!-- Step dots -->
-  <circle class="dot d1" cx="300" cy="14" r="4"/>
-  <circle class="dot d2" cx="320" cy="14" r="4"/>
-  <circle class="dot d3" cx="340" cy="14" r="4"/>
-  <circle class="dot d4" cx="360" cy="14" r="4"/>
-  <circle class="dot d5" cx="380" cy="14" r="4"/>
-  <circle class="dot d6" cx="400" cy="14" r="4"/>
-
-  <!-- Connection lines -->
-  <line class="conn" x1="95"  y1="90" x2="175" y2="90"/>
-  <line class="conn" x1="295" y1="90" x2="325" y2="90"/>
-  <line class="conn" x1="395" y1="90" x2="425" y2="90"/>
-  <line class="conn" x1="565" y1="90" x2="625" y2="90"/>
-
-  <!-- Alice (Ethereum side) -->
-  <circle class="actor" cx="60" cy="90" r="28"/>
-  <text class="lbl" x="60" y="95" text-anchor="middle">Alice</text>
-  <text class="sub" x="60" y="138" text-anchor="middle">Ethereum</text>
-
-  <!-- ETH HTLC vault -->
-  <rect class="vault" x="175" y="58" width="120" height="64"/>
-  <text class="vault-lbl" x="235" y="86" text-anchor="middle">ETH HTLC</text>
-  <text class="sub" x="235" y="102" text-anchor="middle">lock / claim</text>
-
-  <!-- Operator -->
-  <circle class="actor" cx="360" cy="90" r="28"/>
-  <text class="lbl" x="360" y="88" text-anchor="middle">Operator</text>
-  <text class="sub" x="360" y="102" text-anchor="middle">matchmaker</text>
-  <text class="sub" x="360" y="138" text-anchor="middle">refill_mint</text>
-
-  <!-- 2D HTLC vault -->
-  <rect class="vault" x="425" y="58" width="140" height="64"/>
-  <text class="vault-lbl" x="495" y="86" text-anchor="middle">2D HTLC</text>
-  <text class="sub" x="495" y="102" text-anchor="middle">lock / claim</text>
-
-  <!-- Alice (2D side) -->
-  <circle class="actor" cx="660" cy="90" r="28"/>
-  <text class="lbl" x="660" y="88" text-anchor="middle">Alice</text>
-  <text class="sub" x="660" y="102" text-anchor="middle">on 2D</text>
-  <text class="sub" x="660" y="138" text-anchor="middle">receives USD</text>
-
-  <!-- Hash badges -->
-  <g class="badge hash h-eth">
-    <rect x="205" y="32" width="60" height="20"/>
-    <text x="235" y="46" text-anchor="middle">hash H</text>
-  </g>
-  <g class="badge hash h-2d">
-    <rect x="465" y="32" width="60" height="20"/>
-    <text x="495" y="46" text-anchor="middle">hash H</text>
+  <!-- Step 1 -->
+  <g class="row r1">
+    <text class="num" x="20" y="38">1</text>
+    <text class="actor" x="60" y="38">Alice</text>
+    <line class="arr" x1="130" y1="34" x2="340" y2="34"/>
+    <circle class="usdc" cx="235" cy="24" r="10"/><text class="tok" x="235" y="28" text-anchor="middle">USDC</text>
+    <text class="actor" x="360" y="38">ETH HTLC</text>
+    <rect class="hash" x="470" y="24" width="70" height="20" rx="4"/>
+    <text class="badge" x="505" y="38" text-anchor="middle">hash H</text>
+    <text class="desc" x="60" y="58">Alice locks USDC on Ethereum under hash H</text>
   </g>
 
-  <!-- Preimage badges -->
-  <g class="badge pre p-2d">
-    <rect x="453" y="32" width="84" height="20"/>
-    <text x="495" y="46" text-anchor="middle">preimage P</text>
-  </g>
-  <g class="badge pre p-eth">
-    <rect x="193" y="32" width="84" height="20"/>
-    <text x="235" y="46" text-anchor="middle">preimage P</text>
-  </g>
-
-  <!-- USDC token: Alice(60) → ETH HTLC(235) → Operator(360) -->
-  <g class="tok usdc">
-    <circle cx="60" cy="90" r="14"/>
-    <text x="60" y="94" text-anchor="middle">USDC</text>
-    <animateTransform attributeName="transform" type="translate"
-      values="0 0; 0 0; 175 0; 175 0; 300 0; 300 0"
-      keyTimes="0; 0.02; 0.1667; 0.83; 0.97; 1"
-      dur="18s" repeatCount="indefinite" calcMode="spline"
-      keySplines="0.42 0 0.58 1; 0.42 0 0.58 1; 0.42 0 0.58 1; 0.42 0 0.58 1; 0.42 0 0.58 1"/>
-    <animate attributeName="opacity" values="0;1;1;1;0" keyTimes="0;0.02;0.96;0.99;1" dur="18s" repeatCount="indefinite"/>
+  <!-- Step 2 -->
+  <g class="row r2">
+    <text class="num" x="20" y="108">2</text>
+    <text class="actor" x="60" y="108">ETH HTLC</text>
+    <line class="arr" x1="190" y1="104" x2="340" y2="104"/>
+    <text class="actor" x="360" y="108">Operator</text>
+    <text class="desc" x="60" y="128">Operator watches for Locked event; waits for finality (~12-15 min)</text>
   </g>
 
-  <!-- USD token: Operator(360) → 2D HTLC(495) → Alice-2D(660) -->
-  <g class="tok usd">
-    <circle cx="360" cy="90" r="14"/>
-    <text x="360" y="94" text-anchor="middle">USD</text>
-    <animateTransform attributeName="transform" type="translate"
-      values="0 0; 0 0; 0 0; 135 0; 135 0; 300 0; 300 0; 300 0"
-      keyTimes="0; 0.33; 0.36; 0.6667; 0.74; 0.8333; 0.96; 1"
-      dur="18s" repeatCount="indefinite" calcMode="spline"
-      keySplines="0.42 0 0.58 1; 0.42 0 0.58 1; 0.42 0 0.58 1; 0.42 0 0.58 1; 0.42 0 0.58 1; 0.42 0 0.58 1; 0.42 0 0.58 1"/>
-    <animate attributeName="opacity" values="0;0;1;1;1;0" keyTimes="0;0.33;0.36;0.96;0.99;1" dur="18s" repeatCount="indefinite"/>
+  <!-- Step 3 -->
+  <g class="row r3">
+    <text class="num" x="20" y="178">3</text>
+    <text class="actor" x="60" y="178">Operator</text>
+    <line class="arr" x1="175" y1="174" x2="340" y2="174"/>
+    <circle class="usd" cx="260" cy="164" r="10"/><text class="tok" x="260" y="168" text-anchor="middle">USD</text>
+    <text class="actor" x="360" y="178">2D pool</text>
+    <text class="desc" x="60" y="198">refill_mint creates USD-stable; verifier re-checks via helios</text>
   </g>
 
-  <!-- Phase captions -->
-  <text class="cap c1" x="360" y="178" text-anchor="middle">1 · Alice locks USDC on the Ethereum HTLC under hash H</text>
-  <text class="cap c2" x="360" y="178" text-anchor="middle">2 · Operator waits for Ethereum finality (~12-15 min)</text>
-  <text class="cap c3" x="360" y="178" text-anchor="middle">3 · Operator mints USD-stable via refill_mint; verifier rechecks</text>
-  <text class="cap c4" x="360" y="178" text-anchor="middle">4 · Operator locks USD-stable on the 2D HTLC, same hash H</text>
-  <text class="cap c5" x="360" y="178" text-anchor="middle">5 · Alice claims on 2D with preimage P → USD-stable is hers</text>
-  <text class="cap c6" x="360" y="178" text-anchor="middle">6 · Operator claims original USDC on Ethereum with same P</text>
+  <!-- Step 4 -->
+  <g class="row r4">
+    <text class="num" x="20" y="248">4</text>
+    <text class="actor" x="60" y="248">Operator</text>
+    <line class="arr" x1="175" y1="244" x2="340" y2="244"/>
+    <circle class="usd" cx="260" cy="234" r="10"/><text class="tok" x="260" y="238" text-anchor="middle">USD</text>
+    <text class="actor" x="360" y="248">2D HTLC</text>
+    <rect class="hash" x="460" y="234" width="70" height="20" rx="4"/>
+    <text class="badge" x="495" y="248" text-anchor="middle">hash H</text>
+    <text class="desc" x="60" y="268">Operator locks USD-stable on 2D HTLC under same hash H</text>
+  </g>
+
+  <!-- Step 5 -->
+  <g class="row r5">
+    <text class="num" x="20" y="318">5</text>
+    <text class="actor" x="60" y="318">Alice on 2D</text>
+    <line class="arr" x1="200" y1="314" x2="340" y2="314"/>
+    <text class="actor" x="360" y="318">2D HTLC</text>
+    <rect class="pre" x="460" y="304" width="100" height="20" rx="4"/>
+    <text class="badge" x="510" y="318" text-anchor="middle">preimage P</text>
+    <text class="desc" x="60" y="338">Alice claims with preimage P; USD-stable is hers</text>
+  </g>
+
+  <!-- Step 6 -->
+  <g class="row r6">
+    <text class="num" x="20" y="388">6</text>
+    <text class="actor" x="60" y="388">Operator</text>
+    <line class="arr" x1="175" y1="384" x2="340" y2="384"/>
+    <text class="actor" x="360" y="388">ETH HTLC</text>
+    <rect class="pre" x="460" y="374" width="100" height="20" rx="4"/>
+    <text class="badge" x="510" y="388" text-anchor="middle">preimage P</text>
+    <circle class="usdc" cx="260" cy="374" r="10"/><text class="tok" x="260" y="378" text-anchor="middle">USDC</text>
+    <text class="desc" x="60" y="408">Operator claims original USDC on Ethereum with same P</text>
+  </g>
+
+  <!-- Divider lines between steps -->
+  <line x1="40" y1="70" x2="560" y2="70" stroke="var(--c)" stroke-width=".5" opacity=".12"/>
+  <line x1="40" y1="140" x2="560" y2="140" stroke="var(--c)" stroke-width=".5" opacity=".12"/>
+  <line x1="40" y1="210" x2="560" y2="210" stroke="var(--c)" stroke-width=".5" opacity=".12"/>
+  <line x1="40" y1="280" x2="560" y2="280" stroke="var(--c)" stroke-width=".5" opacity=".12"/>
+  <line x1="40" y1="350" x2="560" y2="350" stroke="var(--c)" stroke-width=".5" opacity=".12"/>
 </svg>
