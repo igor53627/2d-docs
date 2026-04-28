@@ -97,7 +97,7 @@ A failure on any row aborts the block as `:unbacked_refill_mint`. The verifier r
 
 The ordering is load-bearing. The check runs **after** `BlockExecutor.execute_transactions` (so the new `bridge_mints` rows are visible inside the same SERIALIZABLE transaction) and **before** `Chain.StateRoot.compute`. Producer trust at include-time, verifier authority at finality. A compromised producer that includes an unbacked refill never reaches an honest user; every honest verifier rejects the block.
 
-<object type="image/svg+xml" data="/2d-docs/diagrams/cross-chain-check.svg" style="width:100%;max-width:720px;display:block;margin:1.5rem auto;aspect-ratio:720/220" aria-label="Cross-chain check ordering inside the verifier">Cross-chain check ordering diagram</object>
+<object type="image/svg+xml" data="/2d-docs/diagrams/cross-chain-check.svg" style="width:100%;max-width:720px;display:block;margin:1.5rem auto;aspect-ratio:720/200" aria-label="Cross-chain check ordering inside the verifier">Cross-chain check ordering diagram</object>
 
 ## Helios — what "Ethereum RPC" actually means
 
