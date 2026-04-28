@@ -77,7 +77,7 @@ export default defineConfig({
 						{
 							label: 'Bridge (HTLC + per-event refill)',
 							translations: {
-								ru: 'Bridge (HTLC + per-event refill)',
+								ru: 'Мост (HTLC + per-event refill)',
 							},
 							slug: 'architecture/bridge',
 						},
