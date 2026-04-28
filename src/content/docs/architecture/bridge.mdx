@@ -102,7 +102,9 @@ The ordering is load-bearing. The check runs **after** `BlockExecutor.execute_tr
 
 The verifier does not trust an Infura endpoint. `eth_getTransactionReceipt` and `eth_getBlockByNumber` from a remote RPC are RPC-level: the response could be anything the operator of that endpoint wants. A bridge that trusts a remote RPC for finality has, in effect, signed away its security to whoever runs that endpoint.
 
-The production verifier instead points the JSON-RPC URL at a local **helios** sidecar. Helios is a light client for Ethereum: it tracks the beacon chain's sync committee, verifies headers cryptographically, and serves an `eth_*` JSON-RPC API backed by light-client-verified data. The trust assumption reduces to **"≥ 1/3 of the beacon sync committee is honest"**, the same threshold that secures Ethereum's finality itself.
+The recommended production deployment points the JSON-RPC URL at a local **helios** sidecar. Helios is a light client for Ethereum: it tracks the beacon chain's sync committee, verifies headers cryptographically, and serves an `eth_*` JSON-RPC API backed by light-client-verified data. When helios is used, the trust assumption reduces to **"≥ 1/3 of the beacon sync committee is honest"**, the same threshold that secures Ethereum's finality itself.
+
+Important caveat: helios is an **operational assumption**, not a protocol-level invariant. The code reads `ETHEREUM_RPC_URL` from the environment and makes HTTP calls to whatever endpoint is configured. Nothing prevents pointing it at Infura, Alchemy, or any other third-party RPC. If the deployment does not use helios, the bridge's cross-chain security degrades to "trust whoever runs the configured endpoint."
 
 In code, the dependency is a behaviour with two implementations ([`lib/chain/verifier/ethereum_rpc.ex`](https://github.com/igor53627/2d/blob/8b7caf2/lib/chain/verifier/ethereum_rpc.ex)):
 
@@ -137,15 +139,14 @@ Bridge-out (2D → Ethereum) is symmetric, with the same role for the operator a
 
 | Threat | Outcome |
 |---|---|
-| Operator key compromise | DoS only. The attacker can refuse to lock matching swaps, but cannot drain. There is no `unlock()` authority. |
-| Malicious operator submits bogus `refill_mint` | Rejected by verifier. The cross-chain check fails one of `:not_found`, `:wrong_contract`, `:amount_mismatch`, `:not_finalized`. Block dropped. |
-| Compromised producer includes an unbacked refill | Same path. Verifier rejects independently. The producer's claim never reaches honest users. |
+| Operator key compromise | Cannot forge a backed refill (verifier catches fabricated events). Cannot bypass HTLC claim/refund (preimage-locked). **Can** move USD-stable out of the operator pool, which is a regular account with a transferable balance. This makes the pool a hot wallet: key compromise lets the attacker drain accumulated liquidity, leaving minted supply unbacked. HTLC eliminates the `unlock()` class of attacks but does not eliminate custodial risk on the operator account itself. |
+| Operator submits fabricated `refill_mint` | The precompile only checks `caller == operator` and inserts the row. The cross-chain check runs later, on the **verifier** side, during block replay. An honest verifier rejects the block if the cited Ethereum event is not found, has a wrong contract/signature, or is not yet finalized. Protection is at verifier replay, not at block production time. |
+| Compromised producer includes an unbacked refill | Same path. Every honest verifier independently replays the block and rejects it. The producer's block never reaches users who connect through honest verifiers. |
 | User fails to claim before deadline | Per-swap loss bound. `refund(hash)` returns funds to the original sender after the deadline. |
-| Helios sidecar lies | Equivalent to ≥ 2/3 of the beacon sync committee being malicious. The whole Ethereum chain is at that point compromised; a bridge cannot do better than its underlying source-of-truth. |
-| Remote Ethereum RPC compromise | Not applicable. The verifier never queries an external RPC; it queries the local helios sidecar, which validates against beacon-chain signatures. |
+| Helios sidecar compromise | If helios is deployed: equivalent to ≥ 2/3 of the beacon sync committee being malicious. If helios is **not** deployed and `ETHEREUM_RPC_URL` points at a third-party endpoint, cross-chain security degrades to trusting that endpoint's operator. Helios is an operational best practice, not a protocol-enforced invariant. |
 | Duplicate event submitted twice | Rejected at the chain side. `bridge_mints` PK on `eth_event_id` is committed in the [state root](../state-roots/), so a producer that bypassed the PK check would still be caught by the verifier's state-root recomputation. |
 
-The bridge inherits Ethereum's economic security on the source side and 2D's verifier on the chain side. There is no third trust party: no validator federation, no oracle, no custodian.
+The bridge eliminates the `unlock()` authority that has drained wrapped bridges, and binds every mint to a verifier-checked Ethereum event. It does **not** eliminate custodial risk on the operator's pool account: the operator key is a hot wallet key, and key compromise exposes whatever USD-stable balance the operator holds at that moment.
 
 ## Where the bridge sits in the rest of the chain
 
