@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 200">
+<svg style="background:transparent" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 200">
   <title>Cross-chain check ordering inside the verifier</title>
   <style>
     :root { --c: #333; --c2: rgba(50,50,50,0.12); }
