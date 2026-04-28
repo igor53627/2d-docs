@@ -1,95 +1,52 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg style="background:transparent" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 200">
-  <title>Cross-chain check ordering inside the verifier</title>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 160">
   <style>
-    :root { --c: #333; --c2: rgba(50,50,50,0.12); }
-    @media (prefers-color-scheme: dark) { :root { --c: #ccc; --c2: rgba(200,200,200,0.1); } }
+    :root { --c: #333; }
+    @media (prefers-color-scheme: dark) { :root { --c: #ccc; } }
     text { font-family: ui-sans-serif, system-ui, sans-serif; fill: var(--c); }
-
-    .frame     { fill: none; stroke: var(--c); stroke-width: 1; stroke-dasharray: 5 4; opacity: .2; rx: 8; }
-    .frame-lbl { font-size: 11px; opacity: .5; font-style: italic; }
-
-    .helios     { fill: var(--c2); stroke: var(--c); stroke-width: 1.4; rx: 8; }
-    .helios-lbl { font-size: 12px; font-weight: 700; }
-    .helios-sub { font-size: 9px; opacity: .55; }
-
-    .box      { fill: var(--c2); stroke: var(--c); stroke-width: 1.4; rx: 8; opacity: .35; }
-    .box-lbl  { font-family: ui-monospace,'SF Mono',monospace; font-size: 13px; font-weight: 700; }
-    .box-sub  { font-size: 10px; opacity: .6; }
-    @keyframes on { 0%,22%{ opacity:1; } 25%,100%{ opacity:.35; } }
-    .b1 { animation: on 9s infinite 0s; }
-    .b2 { animation: on 9s infinite 3s; }
-    .b3 { animation: on 9s infinite 6s; }
-
-    .arr { stroke: var(--c); stroke-width: 1.4; fill: none; opacity: .3; }
-    .arr-h { fill: var(--c); opacity: .3; }
-
-    .qr   { fill:none; stroke:var(--c); stroke-width:2; stroke-dasharray:5 4; opacity:0;
-             animation: march .7s linear infinite, qr-vis 9s linear infinite; }
-    .qr-l { font-size:9px; font-weight:700; opacity:0; animation: qr-vis 9s linear infinite; }
-    @keyframes march  { to { stroke-dashoffset:-9; } }
-    @keyframes qr-vis { 0%,32%{ opacity:0; } 35%,63%{ opacity:.75; } 66%,100%{ opacity:0; } }
-
-    .tag     { opacity:0; animation: tag-vis 9s infinite; }
-    .tag rect{ fill:#3d8b50; stroke:#2c6e3c; stroke-width:1; rx:4; }
-    .tag text{ font-size:10px; font-weight:700; fill:#fff; }
-    @keyframes tag-vis { 0%,72%{ opacity:0; } 78%,97%{ opacity:1; } 100%{ opacity:0; } }
-
-    .cap { font-size:11px; opacity:0; }
-    @keyframes cap { 0%,30%{ opacity:.85; } 33%,100%{ opacity:0; } }
-    .c1 { animation: cap 9s infinite 0s; }
-    .c2 { animation: cap 9s infinite 3s; }
-    .c3 { animation: cap 9s infinite 6s; }
+    .frame     { fill: none; stroke: var(--c); stroke-width: 1; stroke-dasharray: 4 4; opacity: .2; }
+    .frame-lbl { font-size: 10px; opacity: .5; font-style: italic; }
+    .box       { fill: var(--c); fill-opacity: .05; stroke: var(--c); stroke-width: 1.5; rx: 6; }
+    .box-lbl   { font-family: ui-monospace, 'SF Mono', monospace; font-size: 12px; font-weight: 600; }
+    .box-sub   { font-size: 10px; opacity: .65; }
+    .stage     { opacity: .3; }
+    @keyframes pop { 0%,28%{ opacity:1; } 29%,100%{ opacity:.3; } }
+    .s1 { animation: pop 6s infinite 0s; }
+    .s2 { animation: pop 6s infinite 2s; }
+    .s3 { animation: pop 6s infinite 4s; }
+    .arr   { stroke: var(--c); stroke-width: 1.5; fill: none; opacity: .4; }
+    .arr-h { fill: var(--c); opacity: .4; }
+    .note  { font-size: 10px; opacity: .5; }
   </style>
 
-  <!-- Helios -->
-  <rect class="helios" x="275" y="4" width="170" height="40"/>
-  <text class="helios-lbl" x="360" y="22" text-anchor="middle">helios sidecar</text>
-  <text class="helios-sub" x="360" y="36" text-anchor="middle">eth_* через light client</text>
+  <text class="frame-lbl" x="320" y="16" text-anchor="middle">внутри одной SERIALIZABLE block-execution транзакции</text>
+  <rect class="frame" x="20" y="26" width="600" height="95" rx="4"/>
 
-  <!-- Query / response (phase 2 only) -->
-  <path class="qr" d="M 340 86 L 340 44"/>
-  <path class="qr" d="M 380 44 L 380 86"/>
-
-  <!-- Frame -->
-  <text class="frame-lbl" x="360" y="68" text-anchor="middle">внутри одной SERIALIZABLE block-execution транзакции</text>
-  <rect class="frame" x="30" y="76" width="660" height="80"/>
-
-  <!-- Stage 1 -->
-  <g>
-    <rect class="box b1" x="50" y="86" width="180" height="60"/>
-    <text class="box-lbl b1" x="140" y="112" text-anchor="middle">execute_transactions</text>
-    <text class="box-sub b1" x="140" y="130" text-anchor="middle">применяет batch, пишет bridge_mints</text>
+  <g class="stage s1">
+    <rect class="box" x="40" y="42" width="170" height="65"/>
+    <text class="box-lbl" x="125" y="68" text-anchor="middle">execute_transactions</text>
+    <text class="box-sub" x="125" y="86" text-anchor="middle">кредитует, дебитует,</text>
+    <text class="box-sub" x="125" y="99" text-anchor="middle">пишет строки bridge_mints</text>
   </g>
 
-  <!-- Stage 2 -->
-  <g>
-    <rect class="box b2" x="270" y="86" width="180" height="60"/>
-    <text class="box-lbl b2" x="360" y="112" text-anchor="middle">verify_block_refills</text>
-    <text class="box-sub b2" x="360" y="130" text-anchor="middle">helios перепроверяет каждую строку</text>
+  <g class="stage s2">
+    <rect class="box" x="235" y="42" width="170" height="65"/>
+    <text class="box-lbl" x="320" y="68" text-anchor="middle">verify_block_refills</text>
+    <text class="box-sub" x="320" y="86" text-anchor="middle">helios → finalized проверка</text>
+    <text class="box-sub" x="320" y="99" text-anchor="middle">на каждую новую строку</text>
   </g>
 
-  <!-- Stage 3 -->
-  <g>
-    <rect class="box b3" x="490" y="86" width="180" height="60"/>
-    <text class="box-lbl b3" x="580" y="112" text-anchor="middle">StateRoot.compute</text>
-    <text class="box-sub b3" x="580" y="130" text-anchor="middle">четыре таблицы → keccak root</text>
+  <g class="stage s3">
+    <rect class="box" x="430" y="42" width="170" height="65"/>
+    <text class="box-lbl" x="515" y="68" text-anchor="middle">StateRoot.compute</text>
+    <text class="box-sub" x="515" y="86" text-anchor="middle">включая bridge_mints_root</text>
+    <text class="box-sub" x="515" y="99" text-anchor="middle">по всем четырём таблицам</text>
   </g>
 
-  <!-- Arrows -->
-  <line class="arr" x1="234" y1="116" x2="266" y2="116"/>
-  <polygon class="arr-h" points="266,116 260,113 260,119"/>
-  <line class="arr" x1="454" y1="116" x2="486" y2="116"/>
-  <polygon class="arr-h" points="486,116 480,113 480,119"/>
+  <line class="arr" x1="210" y1="74" x2="232" y2="74"/>
+  <polygon class="arr-h" points="232,74 226,71 226,77"/>
+  <line class="arr" x1="405" y1="74" x2="427" y2="74"/>
+  <polygon class="arr-h" points="427,74 421,71 421,77"/>
 
-  <!-- state_root tag (appears at end of phase 3) -->
-  <g class="tag">
-    <rect x="538" y="148" width="84" height="20"/>
-    <text x="580" y="162" text-anchor="middle">state_root ✓</text>
-  </g>
-
-  <!-- Phase captions -->
-  <text class="cap c1" x="360" y="192" text-anchor="middle">Верификатор повторяет транзакции; появляются строки bridge_mints.</text>
-  <text class="cap c2" x="360" y="192" text-anchor="middle">Каждая строка перепроверяется по finalized Ethereum через helios.</text>
-  <text class="cap c3" x="360" y="192" text-anchor="middle">Четыре state-таблицы сворачиваются в один root; блок коммитится если совпал.</text>
+  <text class="note" x="320" y="145" text-anchor="middle">Failure на любом этапе откатывает весь блок. Никакого частичного state-а.</text>
 </svg>

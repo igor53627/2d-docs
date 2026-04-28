@@ -97,7 +97,7 @@ A failure on any row aborts the block as `:unbacked_refill_mint`. The verifier r
 
 The ordering is load-bearing. The check runs **after** `BlockExecutor.execute_transactions` (so the new `bridge_mints` rows are visible inside the same SERIALIZABLE transaction) and **before** `Chain.StateRoot.compute`. Producer trust at include-time, verifier authority at finality. A compromised producer that includes an unbacked refill never reaches an honest user; every honest verifier rejects the block.
 
-<img src="/2d-docs/diagrams/cross-chain-check.svg?v=3" alt="Cross-chain check ordering inside the verifier" style="width:100%;max-width:720px;display:block;margin:1.5rem auto;aspect-ratio:720/200" />
+<img src="/2d-docs/diagrams/cross-chain-check.svg?v=4" alt="Cross-chain check ordering inside the verifier" style="width:100%;max-width:720px;display:block;margin:1.5rem auto;aspect-ratio:640/160" />
 
 ## Helios — what "Ethereum RPC" actually means
 
@@ -122,7 +122,6 @@ end
 
 ## Bridge-in / bridge-out walkthrough
 
-<img src="/2d-docs/diagrams/bridge-in-flow.svg?v=3" alt="Bridge-in token flow animation" style="width:100%;max-width:720px;display:block;margin:1.5rem auto;aspect-ratio:600/440" />
 
 Bridge-in (Ethereum → 2D):
 
