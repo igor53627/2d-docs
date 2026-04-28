@@ -97,7 +97,6 @@ Failure на любой строке отменяет блок как `:unbacked
 
 Порядок имеет значение. Check запускается **после** `BlockExecutor.execute_transactions` (чтобы новые строки `bridge_mints` были видны внутри той же SERIALIZABLE-транзакции) и **до** `Chain.StateRoot.compute`. Producer-у доверяем на момент include, финальный авторитет — за верификатором. Скомпрометированный producer, который включил необеспеченный refill, никогда не доходит до честного пользователя; каждый честный верификатор отклоняет блок.
 
-<img src="/2d-docs/diagrams/cross-chain-check-ru.svg?v=4" alt="Cross-chain check ordering inside the verifier" style="width:100%;max-width:720px;display:block;margin:1.5rem auto;aspect-ratio:640/160" />
 
 ## Helios — что на самом деле значит «Ethereum RPC»
 
