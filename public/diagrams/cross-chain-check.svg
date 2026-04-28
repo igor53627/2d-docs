@@ -48,10 +48,8 @@
   <text class="helios-sub" x="360" y="36" text-anchor="middle">light-client-verified eth_*</text>
 
   <!-- Query / response (phase 2 only) -->
-  <path class="qr" d="M 338 86 L 338 44"/>
-  <path class="qr" d="M 382 44 L 382 86"/>
-  <text class="qr-l" x="324" y="67" text-anchor="end">query ↑</text>
-  <text class="qr-l" x="396" y="67" text-anchor="start">↓ verified</text>
+  <path class="qr" d="M 340 86 L 340 44"/>
+  <path class="qr" d="M 380 44 L 380 86"/>
 
   <!-- Frame -->
   <text class="frame-lbl" x="360" y="68" text-anchor="middle">inside one SERIALIZABLE block-execution transaction</text>
