@@ -86,9 +86,9 @@ Boot loads the enabled precompiles once, and every transaction thereafter pays o
 
 Address namespace matters. All system precompiles live at `0x2D00…`; the top byte `0x2D` (ASCII `-`, and the project's namesake) is a reserved prefix. `eth_getCode` returns `0x01` for any address in this range that resolves, so wallets that branch on "is there code here?" get the right answer without needing a full EVM.
 
-## Sketching an HTLC precompile
+## The HTLC precompile
 
-Talking about precompiles in the abstract only gets you so far. Below is the target design for the HTLC precompile, the first concrete implementation on our roadmap. The code is not yet written, only the shape; that's enough to see what a precompile looks like in practice.
+Talking about precompiles in the abstract only gets you so far. Below is the HTLC precompile at `0x2D00…0001`, the first precompile with real state on the chain ([`lib/chain/precompiles/htlc.ex`](https://github.com/igor53627/2d/blob/7338952/lib/chain/precompiles/htlc.ex)).
 
 An HTLC (hashed time-locked contract) is the primitive behind on-chain atomic swaps. Alice locks funds with a hash `H` and a deadline. Whoever knows the preimage `P` such that `sha256(P) = H` can claim before the deadline. If no one claims in time, Alice refunds herself. The magic: two parties on two different chains can run matching HTLCs and produce a swap that is either fully complete (preimage revealed on both sides) or fully rolled back (both deadlines hit, both parties refund). No custodian to trust, no validator set to convene, no pooled contract holding all the locked funds.
 
@@ -96,7 +96,6 @@ An HTLC (hashed time-locked contract) is the primitive behind on-chain atomic sw
 defmodule Chain.Precompiles.HTLC do
   @moduledoc """
   Hashed time-locked contract: atomic swaps without a trusted bridge.
-  Design target for the first real precompile.
   """
   @behaviour Chain.Precompile
 

@@ -58,6 +58,7 @@ For every block (including genesis), the verifier independently verifies:
 | **chain_id** | Cross-chain replay (transaction signed for a different network). |
 | **sender recovery** | For Ethereum transactions, the sender is re-derived from the signature. For Tron transactions, the signature is re-verified against the claimed sender. |
 | **genesis invariants** | Genesis timestamp and transactions root match the canonical constants. Prevents adversarial genesis forgery. |
+| **bridge cross-chain check** | Every `bridge_mints` row is independently verified against finalized Ethereum state via JSON-RPC. For `bridge_lock` rows, the `receiverOn2D` from the Ethereum `Locked` event is compared to the HTLC receiver on 2D. See [Bridge](../bridge/) for the full verification table. |
 
 A mismatch on state_root, transactions_root, or block_hash is a consensus violation. The verifier halts and refuses to serve. Operational errors (upstream temporarily down, gap in block sequence) trigger a catch-up retry.
 
