@@ -58,6 +58,7 @@ config :chain,
 | **chain_id** | Cross-chain replay (транзакция подписана для другой сети). |
 | **Восстановление sender** | Для Ethereum-транзакций sender заново выводится из подписи. Для Tron-транзакций подпись перепроверяется против заявленного sender. |
 | **Genesis invariants** | Timestamp и transactions root genesis совпадают с каноническими константами. Предотвращает подделку genesis. |
+| **Bridge cross-chain check** | Каждая строка `bridge_mints` независимо проверяется по finalized Ethereum-стейту через JSON-RPC. Для строк `bridge_lock` адрес `receiverOn2D` из Ethereum-события `Locked` сравнивается с получателем HTLC на 2D. Полная таблица проверок в статье [Мост](../bridge/). |
 
 Расхождение в state_root, transactions_root или block_hash означает нарушение консенсуса. Верификатор останавливается и перестаёт обслуживать запросы. Операционные ошибки (upstream временно недоступен, пропуск в блоках) запускают повторный catch-up.
 
