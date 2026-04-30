@@ -59,10 +59,11 @@ bridge_lock(uint64 eth_chain_id, bytes32 eth_tx_hash, uint32 eth_log_index,
 
 Авторизация на `BridgeRefillMint` — одна проверка: caller равен оператору. Этого хватает, чтобы случайные адреса не могли минтить, но недостаточно, чтобы гарантировать, что указанное событие реально существует. Скомпрометированный ключ оператора может вызвать `bridge_lock` с выдуманной тройкой и фиктивным amount; precompile послушно вставит строки.
 
-Здесь вступает верификатор. После того как producer выполнил кандидатный блок, но до того как верификатор его принял, каждая новая строка `bridge_mints` проходит независимую cross-chain проверку. Каждая строка порождает два JSON-RPC запроса к Ethereum:
+Здесь вступает верификатор. После того как producer выполнил кандидатный блок, но до того как верификатор его принял, каждая новая строка `bridge_mints` проходит независимую cross-chain проверку. Каждая строка порождает три JSON-RPC запроса к Ethereum:
 
-- `eth_getTransactionReceipt(tx_hash)` — из ответа берётся лог под индексом `log_index`.
+- `eth_getTransactionReceipt(tx_hash)` — из ответа берётся лог под индексом `log_index`. `receiverOn2D` и `amount` извлекаются из `log.data` (неиндексированные поля); `htlc_hash` и `sender` берутся из indexed topics.
 - `eth_getBlockByNumber("finalized")` — номер последнего finalized блока; блок receipt-а должен быть не позже.
+- `eth_getLogs` — поиск событий `Refunded` по hash и sender в ограниченном окне блоков после lock-а.
 
 После подтверждения существования и finality события `Locked` верификатор проводит три дополнительных проверки привязок:
 
@@ -122,7 +123,7 @@ Bridge-in (Ethereum → 2D):
 
 1. **Пользователь отправляет USDC в lock на Ethereum.** Alice вызывает `lock(hash, receiverOn2D, amount, deadline)` на Ethereum HTLC-контракте ([`BridgeHTLC.sol`](https://github.com/igor53627/2d-solidity/blob/main/src/BridgeHTLC.sol)); `amount` USDC уходят в escrow под `hash`. Параметр `receiverOn2D` — это адрес Alice на 2D, он попадает в indexed topic события `Locked`, чтобы верификатор мог его проверить.
 2. **Оператор ждёт finality.** Оркестратор отслеживает событие `Locked`, опрашивает `eth_getBlockByNumber("finalized")` и ждёт, пока блок с lock-ом не окажется finalized. Это занимает примерно 12-15 минут на Ethereum mainnet.
-3. **Оператор пополняет пул и лочит на 2D (атомарно).** Оператор отправляет `bridge_lock(chain_id, tx_hash, log_index, amount, hash, Alice, deadline)` на `0x2D00…0003`. Precompile вставляет строку в `bridge_mints`, кредитует `amount` USD-stable на счёт оператора и сразу лочит их в HTLC для Alice под тем же `hash`. Верификатор независимо перепроверяет Ethereum-событие и проверяет, что `receiverOn2D` из Ethereum-лога совпадает с адресом Alice в HTLC-свопе; при успехе блок принимается, при провале — отклоняется.
+3. **Оператор лочит на 2D (атомарно).** Оператор отправляет `bridge_lock(chain_id, tx_hash, log_index, amount, hash, Alice, deadline)` на `0x2D00…0003`. Precompile атомарно вставляет HTLC-своп (лочит `amount` для Alice под `hash`) и строку `bridge_mints` (backing эмиссии). Баланс оператора всё время равен нулю. Верификатор независимо перепроверяет Ethereum-событие и проверяет, что `htlc_hash`, `receiverOn2D` и статус refund совпадают; при успехе блок принимается, при провале — отклоняется.
 4. **Alice забирает USD-stable на 2D.** Её кошелёк вызывает `claim(preimage)` на 2D HTLC по адресу `0x2D00…0001`. Поскольку `sha256(preimage) = hash` и deadline не прошёл, HTLC кредитует `amount` USD-stable на счёт Alice.
 5. **Оператор забирает USDC на Ethereum.** Preimage теперь виден на 2D-цепи (в calldata claim-транзакции и в логе `HTLC_Claimed`). Оператор вызывает `claim(preimage)` на Ethereum HTLC и возвращает исходные USDC в свой пул.
 
