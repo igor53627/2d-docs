@@ -41,7 +41,9 @@ Duplicate transaction hashes are handled with `ON CONFLICT DO NOTHING` at insert
 
 All transactions are free (fee = 0). Spam is prevented by an exponential delay applied at the block producer level. See [Gasless transactions](../gasless/) for details.
 
-The throttle operates at the SQL level: addresses that exceed the rate threshold are excluded from the pending query entirely, preventing a single spammer from blocking other users' transactions (head-of-line blocking prevention).
+The throttle is a per-sender cooldown, not a hard exclusion. When a sender's count exceeds the threshold inside the sliding window, only that sender's pending rows are skipped during the cooldown window — once the per-sender delay elapses, their next transaction becomes eligible again. Other senders are unaffected (head-of-line blocking prevention), and a throttled sender's queue drains gradually instead of stalling until the sliding window slides.
+
+Tron transactions carry a wallet-set `expiration` (typically 30–60 seconds). If a Tron pending row is held back past its expiration, the producer drops it from the pending pool before block execution rather than persisting a noisy `status=error` record — there is no useful information in "this was throttled past its validity window" beyond the chain-internal scheduling outcome.
 
 Stale pending transactions (older than 10 minutes) are automatically cleaned up.
 
