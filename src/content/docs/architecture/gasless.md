@@ -3,7 +3,7 @@ title: Gasless transactions and anti-spam
 description: All transactions on 2D are free. Spam is prevented by an exponential delay that only affects high-frequency senders.
 ---
 
-Every transaction on 2D is free. There is no gas price, no fee market, no EIP-1559 base fee. The `gasPrice` field in receipts is always zero. Wallets show zero cost.
+Every transaction on 2D is free. There is no gas price, no fee market, no EIP-1559 base fee. The `effectiveGasPrice` field in receipts is always zero (and `gasPrice` on transaction objects is zero too). Wallets show zero cost.
 
 This is possible because 2D is a single-producer chain. There is no block space auction. The producer includes every valid transaction in the next block, subject to one constraint: anti-spam throttling.
 
@@ -32,7 +32,7 @@ Old transactions naturally fall out of the sliding window. If a sender stops sub
 From a wallet's perspective, 2D behaves like any EVM chain with a gas price of zero:
 
 - `eth_gasPrice` returns `0x0`
-- `eth_estimateGas` returns `0x5208` (21000, the standard transfer gas)
+- `eth_estimateGas` returns a constant `0x5208` (21000) for every input — wallets need a non-zero number to render the "estimated fee" field, but no gas is metered or charged
 - Transaction receipts show `gasUsed` and `effectiveGasPrice = 0`
 - No balance is deducted for gas, only for the transfer value
 
