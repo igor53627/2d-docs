@@ -71,7 +71,7 @@ bridge_lock(uint64 eth_chain_id, bytes32 eth_tx_hash, uint32 eth_log_index,
 1. **Привязка HTLC hash.** `htlc_hash` из `bridge_mints` должен совпадать с `topics[1]` Ethereum-события `Locked`. Без этого оператор мог бы сослаться на легитимное событие, но подставить свой hash, а затем вывести средства через deadline refund.
 2. **Привязка получателя.** Адрес `receiverOn2D`, декодированный из `log.data[0:32]` Ethereum-события, должен совпадать с получателем в `htlc_swaps`. Это предотвращает перенаправление средств на адрес атакующего.
 3. **Проверка refund.** Верификатор запрашивает `eth_getLogs` на предмет событий `Refunded`, соответствующих HTLC hash и отправителю, в ограниченном окне блоков после lock-а. Если Ethereum-лок был refunded до того, как оператор отправил `bridge_lock`, минт отклоняется.
-4. **Single-use claimer hash.** `eth_call` к `claimerUsedHash(claimer, htlc_hash)` на bridge-контракте должен вернуть ноль. Без этого оператор мог бы повторно сослаться на `Locked`-событие, чьё preimage уже было раскрыто предыдущим claim-ом — и сминтить новую 2D-эмиссию против Ethereum-лока, в котором USDC уже нет.
+4. **Single-use claimer hash.** `eth_call` к `claimerUsedHash(claimer, htlc_hash)` на bridge-контракте должен вернуть ноль, запрос делается на высоту finalized-head на момент верификации (а не на receipt-блок: `claimerUsedHash` ставится только `claim()`-ом и на блоке Locked-события всегда равен нулю). Без этого оператор мог бы повторно сослаться на `Locked`-событие, чьё preimage уже было раскрыто предыдущим claim-ом — и сминтить новую 2D-эмиссию против Ethereum-лока, в котором USDC уже нет.
 
 Каждая строка `bridge_mints` обязана иметь `htlc_hash` (fail-closed). Строка без него отклоняется с `:missing_htlc_hash`.
 
