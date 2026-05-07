@@ -75,9 +75,9 @@ export default defineConfig({
 							slug: 'architecture/security',
 						},
 						{
-							label: 'Bridge (HTLC + per-event refill)',
+							label: 'Bridge (HTLC + atomic bridge-lock)',
 							translations: {
-								ru: 'Мост (HTLC + per-event refill)',
+								ru: 'Мост (HTLC + атомарный bridge-lock)',
 							},
 							slug: 'architecture/bridge',
 						},
