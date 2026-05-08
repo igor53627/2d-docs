@@ -14,7 +14,7 @@ dependencies:
 references:
   - src/content/docs/architecture/bridge.mdx
   - src/content/docs/ru/architecture/bridge.mdx
-  - https://github.com/igor53627/2d-solidity/blob/main/src/OperatorVault.sol
+  - https://github.com/igor53627/2d-solidity/blob/a827d96685afd078350f4e98895873c802e8d07f/src/OperatorVault.sol
 priority: high
 ---
 

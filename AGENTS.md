@@ -1,12 +1,12 @@
-# AGENTS.md instructions for /Users/user/pse/2d-docs
+# AGENTS.md instructions for 2d-docs
 
 <INSTRUCTIONS>
 ## Documentation Sync
 
 - Treat this repository as the public documentation surface for 2D. When behavior,
   security assumptions, deployment steps, verifier checks, bridge/operator flows,
-  public APIs, or runtime configuration change in `~/pse/2d` or
-  `~/pse/2d-solidity`, update the matching public docs here in the same task when
+  public APIs, or runtime configuration change in the `2d` or `2d-solidity`
+  repositories, update the matching public docs here in the same task when
   practical.
 - If the public docs cannot be updated in the same task, create or update a
   backlog task in `backlog/tasks/` before finalizing the source-repository
