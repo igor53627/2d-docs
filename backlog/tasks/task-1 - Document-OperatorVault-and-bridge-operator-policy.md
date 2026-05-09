@@ -15,8 +15,8 @@ dependencies:
 references:
   - src/content/docs/architecture/bridge.mdx
   - src/content/docs/ru/architecture/bridge.mdx
-  - https://github.com/igor53627/2d-solidity/blob/60bdbdc38a43f5b8f5eab5f434b6e30c06f85490/src/BridgeHTLC.sol
-  - https://github.com/igor53627/2d-solidity/blob/60bdbdc38a43f5b8f5eab5f434b6e30c06f85490/src/OperatorVault.sol
+  - https://github.com/igor53627/2d-solidity/blob/cb79c71ed5ec6b4d20e8a95fcbb3aaee0afa9a23/src/BridgeHTLC.sol
+  - https://github.com/igor53627/2d-solidity/blob/cb79c71ed5ec6b4d20e8a95fcbb3aaee0afa9a23/src/OperatorVault.sol
   - https://github.com/igor53627/2d/blob/f7f9472d76d2dad1bfc22c5d52ce02b0a9b189f2/lib/chain/verifier/cross_chain_check.ex
   - https://github.com/igor53627/2d/blob/f7f9472d76d2dad1bfc22c5d52ce02b0a9b189f2/lib/chain/verifier/operator_allowlist.ex
 priority: high
@@ -71,6 +71,6 @@ emit `claimer = vault`.
   lock's configured claimer, and the Ethereum signing key only has privileged
   `bridgeOut` authority.
 - Linked source references to pinned commits:
-  2d-solidity `60bdbdc38a43f5b8f5eab5f434b6e30c06f85490` and 2d
+  2d-solidity `cb79c71ed5ec6b4d20e8a95fcbb3aaee0afa9a23` and 2d
   `f7f9472d76d2dad1bfc22c5d52ce02b0a9b189f2`.
 - Verification: `npm run build` passed on 2026-05-09.
