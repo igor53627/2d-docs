@@ -54,8 +54,8 @@ flowchart LR
   A -->|"mTLS, calldata-aware sign request"| B
   B -->|"mTLS, namespace=bridge"| hsmBridge
   BP -->|"mTLS, namespace=producer (bypasses Host B)"| hsmProducer
-  classDef compromiseProne fill:#fff7e6,stroke:#d97706
-  classDef snp fill:#eef9ff,stroke:#1d4ed8
+  classDef compromiseProne fill:#fff7e6,stroke:#b45309,color:#b45309,stroke-dasharray: 5 5
+  classDef snp fill:#eef9ff,stroke:#1d4ed8,color:#1e3a8a
   class A compromiseProne
   class B,C,BP snp
 ```
@@ -73,10 +73,16 @@ A successful bridge claim signature traverses every host in order:
 ```mermaid
 sequenceDiagram
   autonumber
-  participant Orch as Host A — orchestrator
-  participant Vault as Host B — Vault Transit
-  participant OPA as Host B — OPA sidecar
-  participant HSM as Host C — NetHSM (bridge namespace)
+  box rgba(217, 119, 6, 0.1) Host A — orchestrator
+    participant Orch as Elixir bridge process
+  end
+  box rgba(29, 78, 216, 0.1) Host B — SEV-SNP
+    participant Vault as Vault Transit
+    participant OPA as OPA sidecar
+  end
+  box rgba(29, 78, 216, 0.1) Host C — SEV-SNP
+    participant HSM as NetHSM (bridge namespace)
+  end
   Orch->>Vault: sign request (calldata + selector + target)
   Vault->>OPA: evaluate against signed Rego bundle
   alt policy allows
@@ -102,16 +108,16 @@ The deployment view, with the three SEV-SNP VMs and the regular orchestrator VM 
 
 ```mermaid
 architecture-beta
-  group epyc(server)[EPYC host]
+  group epyc(logos:linux-tux)["EPYC host (Milan or newer)"]
 
-  service orch(internet)[vm orch regular VM] in epyc
-  service vault(disk)[vm vault SEV SNP] in epyc
-  service bp(database)[vm bp SEV SNP] in epyc
-  service hsm(disk)[vm nethsm SEV SNP] in epyc
+  service orch(logos:elixir)["vm-orch regular VM"] in epyc
+  service vault(logos:vault)["vm-vault SEV-SNP"] in epyc
+  service bp(logos:postgresql)["vm-bp SEV-SNP"] in epyc
+  service hsm(logos:aws-kms)["vm-nethsm SEV-SNP"] in epyc
 
-  group onchain(cloud)[On chain layer]
-  service ovault(server)[OperatorVault] in onchain
-  service verifier(server)[Verifier binding] in onchain
+  group onchain(logos:ethereum)["On-chain layer"]
+  service ovault(logos:ethereum)["OperatorVault"] in onchain
+  service verifier(logos:ethereum)["Verifier binding"] in onchain
 
   orch:R --> L:vault
   vault:B --> T:hsm
