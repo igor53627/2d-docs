@@ -108,16 +108,16 @@ The deployment view, with the three SEV-SNP VMs and the regular orchestrator VM 
 
 ```mermaid
 architecture-beta
-  group epyc(logos:linux-tux)["EPYC host (Milan or newer)"]
+  group epyc(server)["EPYC host (Milan or newer)"]
 
-  service orch(logos:elixir)["vm-orch regular VM"] in epyc
-  service vault(logos:vault)["vm-vault SEV-SNP"] in epyc
-  service bp(logos:postgresql)["vm-bp SEV-SNP"] in epyc
-  service hsm(logos:aws-kms)["vm-nethsm SEV-SNP"] in epyc
+  service orch(internet)["vm-orch regular VM"] in epyc
+  service vault(disk)["vm-vault SEV-SNP"] in epyc
+  service bp(database)["vm-bp SEV-SNP"] in epyc
+  service hsm(disk)["vm-nethsm SEV-SNP"] in epyc
 
-  group onchain(logos:ethereum)["On-chain layer"]
-  service ovault(logos:ethereum)["OperatorVault"] in onchain
-  service verifier(logos:ethereum)["Verifier binding"] in onchain
+  group onchain(cloud)["On-chain layer"]
+  service ovault(server)["OperatorVault"] in onchain
+  service verifier(server)["Verifier binding"] in onchain
 
   orch:R --> L:vault
   vault:B --> T:hsm
