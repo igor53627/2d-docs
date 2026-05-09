@@ -3,8 +3,6 @@ title: Bridge operator HSM topology — three-host separation and confidential c
 description: Where each defense layer of the 2D bridge operator runs in production. Three logical hosts plus an on-chain last line, AMD SEV-SNP confidential VMs around the signing path, and a forever-software-in-TEE pre-mainnet posture stated as policy rather than aspiration.
 ---
 
-import hsmTopology from './hsm-topology.svg';
-
 The bridge article describes *what* the 2D bridge does to keep an operator key compromise from minting unbacked supply or draining the pool. Five verifier bindings, an on-chain `OperatorVault`, a fail-closed signer policy. Each of those layers exists as code somewhere. This article describes *where that code runs*, and why a single-host shortcut collapses the model even with strong policy code on top.
 
 The audience is operators, security reviewers, and anyone evaluating the deployment posture before committing real capital across the bridge. The topology is the source of truth that the [bridge article](../bridge/) layers safety reasoning on top of.
@@ -64,7 +62,7 @@ flowchart LR
 
 The block producer's signing path bypasses Host B by design. Block-header digests have a fixed shape, the producer key is namespaced at the HSM level, and routing producer signatures through the bridge-side OPA bundle adds latency without adding policy that matters for header signing. So the rule is **Host B → Host C `bridge` namespace** *and* **BP host → Host C `producer` namespace**, drop everything else.
 
-Two-host (orchestrator + Vault-with-HSM-on-same-box) collapses on root-Host-B compromise: attacker bypasses OPA and calls the HSM management API directly. Three-host puts a network boundary between policy decision (Host B) and key holding (Host C); compromise of B still requires further movement to dump the HSM key.
+Two-host (orchestrator + Vault-with-HSM-on-same-box) collapses on Host B root compromise: attacker bypasses OPA and calls the HSM management API directly. Three-host puts a network boundary between policy decision (Host B) and key holding (Host C); compromise of B still requires further movement to dump the HSM key.
 
 Zero-host (fully on-chain) is convenient but every transaction proceeds with no off-chain throttling. Host A is unavoidable: it generates calldata in the first place. Host B and Host C add throttle layers on top; without them, a Host A compromise is one step away from "signed anything" until the on-chain `OperatorVault` catches it.
 
@@ -100,7 +98,27 @@ The bundle is hot-reloadable without restarting the signer, so policy updates do
 
 Hosts B and C run as **AMD SEV-SNP** confidential VMs on EPYC silicon (3rd-gen Milan or newer). The block producer's host runs the same. SEV-SNP encrypts VM memory with a per-VM key held by the AMD Secure Processor; the hypervisor and the host kernel cannot read VM memory by design. Every cross-VM connection verifies the peer's **launch measurement** — a cryptographic hash of the boot image — against a published expected value, so a swapped image fails the next attestation step and never gets a sign request.
 
-<img src={hsmTopology.src} alt="EPYC host with SEV-SNP VMs vm-bp / vm-vault / vm-nethsm and a regular vm-orch, with attestation arrows" style="max-width: 100%; height: auto;" />
+The deployment view, with the three SEV-SNP VMs and the regular orchestrator VM all running on one EPYC chassis during pre-mainnet rehearsal, plus the on-chain layer that lives outside the host topology entirely:
+
+```mermaid
+architecture-beta
+  group epyc(server)[EPYC host]
+
+  service orch(internet)[vm orch regular VM] in epyc
+  service vault(disk)[vm vault SEV SNP] in epyc
+  service bp(database)[vm bp SEV SNP] in epyc
+  service hsm(disk)[vm nethsm SEV SNP] in epyc
+
+  group onchain(cloud)[On chain layer]
+  service ovault(server)[OperatorVault] in onchain
+  service verifier(server)[Verifier binding] in onchain
+
+  orch:R --> L:vault
+  vault:B --> T:hsm
+  bp:R --> L:hsm
+  vault:R --> L:ovault
+  hsm:R --> L:verifier
+```
 
 The trust model that buys is specific, and it is worth spelling out so reviewers can challenge it directly:
 
