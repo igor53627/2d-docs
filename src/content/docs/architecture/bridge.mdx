@@ -131,7 +131,7 @@ end
 
 Bridge-in (Ethereum → 2D):
 
-1. **User locks on Ethereum.** Alice calls `lock(hash, claimer, receiverOn2D, amount, deadline)` on the Ethereum HTLC contract ([`BridgeHTLC.sol`](https://github.com/igor53627/2d-solidity/blob/cb79c71ed5ec6b4d20e8a95fcbb3aaee0afa9a23/src/BridgeHTLC.sol)) with `claimer` set to the bridge operator's Ethereum address (the deployed [`OperatorVault`](#bridge-operator-policy)), escrowing `amount` USDC under `hash`. The `Locked` event emits `hash`, `sender`, and `claimer` as indexed topics; `receiverOn2D`, `amount`, and `deadline` go into non-indexed `log.data`. The verifier cross-checks all of these.
+1. **User locks on Ethereum.** Alice calls `lock(hash, claimer, receiverOn2D, amount, deadline)` on the Ethereum HTLC contract ([`BridgeHTLC.sol`](https://github.com/igor53627/2d-solidity/blob/eb63ea4b6237dde539e9dd656734b8fb64a88b2d/src/BridgeHTLC.sol)) with `claimer` set to the bridge operator's Ethereum address (the deployed [`OperatorVault`](#bridge-operator-policy)), escrowing `amount` USDC under `hash`. The `Locked` event emits `hash`, `sender`, and `claimer` as indexed topics; `receiverOn2D`, `amount`, and `deadline` go into non-indexed `log.data`. The verifier cross-checks all of these.
 2. **Operator waits for finality.** The orchestrator watches for the `Locked` event, polls `eth_getBlockByNumber("finalized")`, and waits until the lock's block number is at or below the finalized one. Roughly 12-15 minutes on Ethereum mainnet.
 3. **Operator locks on 2D (atomic).** Operator submits `bridge_lock(chain_id, tx_hash, log_index, amount, hash, Alice, deadline)` to `0x2D00…0003`. The precompile atomically inserts an HTLC swap (locking `amount` for Alice under `hash`) and a `bridge_mints` row (supply backing). Operator balance stays at zero throughout. The verifier independently re-checks the Ethereum event and verifies five bindings — `htlc_hash`, `receiverOn2D`, claimer-in-allowlist, refund status, and that the claimer has not already consumed the hash on Ethereum (queried at the finalized head); on success the block is committed, on failure the block is rejected.
 4. **Alice claims on 2D.** Alice's wallet calls `claim(preimage)` on the 2D HTLC at `0x2D00…0001`. Because `sha256(preimage) = hash` and the deadline has not passed, the HTLC credits `amount` USD-stable to Alice.
@@ -159,7 +159,7 @@ The bridge eliminates the `unlock()` authority that has drained wrapped bridges.
 
 ## Bridge operator policy
 
-Production deploys [`OperatorVault.sol`](https://github.com/igor53627/2d-solidity/blob/cb79c71ed5ec6b4d20e8a95fcbb3aaee0afa9a23/src/OperatorVault.sol) as the Ethereum-side operator wallet. The vault is a UUPS-upgradeable smart contract that splits the operator into two roles enforced on-chain.
+Production deploys [`OperatorVault.sol`](https://github.com/igor53627/2d-solidity/blob/eb63ea4b6237dde539e9dd656734b8fb64a88b2d/src/OperatorVault.sol) as the Ethereum-side operator wallet. The vault is a UUPS-upgradeable smart contract that splits the operator into two roles enforced on-chain.
 
 **Permissionless claim finalization.** `claim(sender, hash, preimage)` can be called by any watcher. The vault first checks that `BridgeHTLC.lockClaimer(sender, hash) == address(this)`, then forwards into `BridgeHTLC.claim(sender, hash, preimage)`. Recovered USDC accumulates in the vault; the caller never chooses the payout address.
 
