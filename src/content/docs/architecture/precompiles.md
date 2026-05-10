@@ -1,5 +1,5 @@
 ---
-title: Precompiles — extending 2D without an EVM
+title: "Precompiles: extending 2D without an EVM"
 description: Every chain eventually needs custom on-chain logic. 2D reaches for a short list of Elixir modules each of which fits in one file and can be read end to end, instead of an EVM. That design choice opens doors a wrapped bridge can't reach.
 ---
 
@@ -9,28 +9,29 @@ The default answer across the industry is an **EVM**: a general-purpose bytecode
 
 2D takes a different path: a **small, explicit precompile registry**. Each "contract" is an Elixir module that fits in one file and implements a fixed behaviour at a fixed address in the `0x2D00…` namespace. There is no bytecode interpreter, no gas-metering layer to get wrong, and because the code set is closed, no question about what runs. You know it because the operator shipped it.
 
-This article walks through how a transaction finds a precompile, what the `@behaviour Chain.Precompile` asks of an implementer, where the registry lives, what a real precompile looks like (sketched against the forthcoming HTLC target), and why that sketch ends up strictly stronger than a wrapped bridge.
+This article walks through how a transaction finds a precompile, what the `@behaviour Chain.Precompile` asks of an implementer, where the registry lives, what the live HTLC precompile looks like, and why that model is stricter than a wrapped bridge.
 
 ## How a transaction finds a precompile
 
 Every transaction has a `to` address. The block producer walks the happy path step by step. Decode the signed tx, check the nonce, then ask the precompile registry whether `to` belongs to a registered handler. A hit dispatches to the handler's `execute/3`. A miss falls through to the native USDC transfer. That second path handles 99% of traffic, because plain account-to-account USDC is not a precompile; it's the default.
 
-The dispatch code ([`lib/chain/block_producer.ex:291-319`](https://github.com/igor53627/2d/blob/c68ddb7/lib/chain/block_producer.ex#L291-L319)):
+The dispatch code ([`lib/chain/block_executor.ex:284-318`](https://github.com/igor53627/2d/blob/4d955b70efde1075e316d9ab2c2c10820fb0cd71/lib/chain/block_executor.ex#L284-L318)):
 
 ```elixir
-defp execute_tx_inner(pending, tx, from, to, value, fee, block_number, tx_index) do
+defp charge_and_execute(pending, tx, from, to, value, fee, block_number, tx_index, ts) do
   case to && Chain.Precompiles.Registry.lookup(to) do
     {:ok, handler} ->
-      case Crypto.decode_hex_safe(tx.input) do
-        {:error, _} ->
-          {:error, :invalid_calldata}
+      cond do
+        Decimal.compare(value, Decimal.new(0)) != :eq ->
+          {:error, :precompile_value_not_supported}
 
-        {:ok, input} ->
-          if byte_size(input) < 4 do
-            {:error, :invalid_calldata}
-          else
+        true ->
+          with {:ok, input} <- Crypto.decode_hex_safe(tx.input),
+               true <- byte_size(input) >= 4 do
             <<selector::binary-4, args::binary>> = input
-            run_precompile_execute(handler, selector, args, ...)
+            run_precompile_execute(handler, selector, args, input, from, value, ...)
+          else
+            _ -> {:error, :invalid_calldata}
           end
       end
 
@@ -45,13 +46,13 @@ Two branches, one decision. Registered? Call the handler. Unregistered? Move USD
 
 ## The `@behaviour Chain.Precompile`
 
-Each precompile implements three callbacks ([`lib/chain/precompiles/precompile.ex`](https://github.com/igor53627/2d/blob/c68ddb7/lib/chain/precompiles/precompile.ex)):
+Each precompile implements three callbacks ([`lib/chain/precompiles/precompile.ex`](https://github.com/igor53627/2d/blob/4d955b70efde1075e316d9ab2c2c10820fb0cd71/lib/chain/precompiles/precompile.ex)):
 
 ```elixir
 defmodule Chain.Precompile do
   @callback address() :: binary()
 
-  @callback execute(selector :: binary(), args :: binary(), context :: map()) ::
+  @callback execute(selector :: binary(), args :: binary(), context :: Chain.Precompile.Context.t()) ::
               {:ok, result :: binary(), logs :: list()} | {:revert, reason :: binary()}
 
   @callback read(selector :: binary(), args :: binary()) ::
@@ -63,11 +64,11 @@ end
 - `execute/3`. State-changing entry point. Called inside the block's transaction. Returns a result plus a log list that flows into the tx receipt, or `{:revert, reason}` to abort cleanly.
 - `read/2`. View call. Used by `eth_call` and `triggerconstantcontract`. Never mutates state.
 
-The `context` map passed to `execute/3` carries what Solidity calls `msg.sender`, `msg.value`, plus block height and tx index. That's everything a handler needs to reason about who it's acting for. Keeping this narrow is deliberate: an `execute/3` that can only do `Accounts.debit/credit` and read `context` is a much smaller thing to review than a whole EVM.
+The `context` struct passed to `execute/3` carries what Solidity calls `msg.sender`, `msg.value`, plus block height, block timestamp, and tx index. That's everything a handler needs to reason about who it's acting for. Keeping this narrow is deliberate: an `execute/3` that can only do explicit account and table writes through local modules is a much smaller thing to review than a whole EVM.
 
 ## The registry
 
-The registry ([`lib/chain/precompiles/registry.ex`](https://github.com/igor53627/2d/blob/c68ddb7/lib/chain/precompiles/registry.ex)) is an ETS table keyed by address:
+The registry ([`lib/chain/precompiles/registry.ex`](https://github.com/igor53627/2d/blob/4d955b70efde1075e316d9ab2c2c10820fb0cd71/lib/chain/precompiles/registry.ex)) is an ETS table keyed by address:
 
 ```elixir
 def lookup(address) when is_binary(address) do
@@ -88,7 +89,7 @@ Address namespace matters. All system precompiles live at `0x2D00…`; the top b
 
 ## The HTLC precompile
 
-Talking about precompiles in the abstract only gets you so far. Below is the HTLC precompile at `0x2D00…0001`, the first precompile with real state on the chain ([`lib/chain/precompiles/htlc.ex`](https://github.com/igor53627/2d/blob/7338952/lib/chain/precompiles/htlc.ex)).
+Talking about precompiles in the abstract only gets you so far. The HTLC precompile at `0x2D00…0001` is live stateful code on the chain ([`lib/chain/precompiles/htlc.ex`](https://github.com/igor53627/2d/blob/4d955b70efde1075e316d9ab2c2c10820fb0cd71/lib/chain/precompiles/htlc.ex)).
 
 An HTLC (hashed time-locked contract) is the primitive behind on-chain atomic swaps. Alice locks funds with a hash `H` and a deadline. Whoever knows the preimage `P` such that `sha256(P) = H` can claim before the deadline. If no one claims in time, Alice refunds herself. The magic: two parties on two different chains can run matching HTLCs and produce a swap that is either fully complete (preimage revealed on both sides) or fully rolled back (both deadlines hit, both parties refund). No custodian to trust, no validator set to convene, no pooled contract holding all the locked funds.
 
@@ -99,65 +100,44 @@ defmodule Chain.Precompiles.HTLC do
   """
   @behaviour Chain.Precompile
 
-  @address <<0x2D, 0::144, 0x00, 0x01>>  # 0x2D00…0001
+  @address <<0x2D, 0::144, 0x01>>  # 0x2D00…0001
 
   # 4-byte Keccak-256 selectors
-  @lock   <<0x38, 0x5F, 0x65, 0xC3>>  # lock(bytes32,address,uint256)
-  @claim  <<0x3A, 0x17, 0x94, 0xE2>>  # claim(bytes32)
-  @refund <<0x02, 0xB8, 0x1C, 0x7C>>  # refund(bytes32)
+  @lock_selector   selector("lock(bytes32,address,uint256,uint256)")
+  @claim_selector  selector("claim(bytes32,bytes32)")
+  @refund_selector selector("refund(bytes32)")
+  @get_swap_selector selector("getSwap(bytes32)")
+
+  defp selector(signature), do: :erlang.binary_part(ExKeccak.hash_256(signature), 0, 4)
 
   @impl true
   def address, do: @address
 
   @impl true
-  def execute(@lock, <<hash::binary-32, receiver::binary-20, deadline::256>>, ctx) do
-    case Store.get(hash) do
-      :none ->
-        Store.put(hash, %{
-          sender: ctx.from,
-          receiver: receiver,
-          amount: ctx.value,
-          deadline: deadline
-        })
-
-        {:ok, <<>>, [log(:HTLC_Locked, hash, ctx.from, receiver, ctx.value, deadline)]}
-
-      _already_locked ->
-        {:revert, "hash already locked"}
-    end
+  def execute(
+        @lock_selector,
+        <<hash::binary-32, _pad::binary-12, receiver::binary-20,
+          amount::256, deadline_ms::256>>,
+        ctx
+      ) do
+    do_lock(hash, receiver, amount, deadline_ms, ctx)
   end
 
-  def execute(@claim, <<preimage::binary-32>>, ctx) do
-    hash = :crypto.hash(:sha256, preimage)
-
-    with %{receiver: r, amount: a, deadline: d} <- Store.get(hash),
-         true <- ctx.block_timestamp < d,
-         true <- ctx.from == r,
-         :ok <- Accounts.credit(r, a),
-         :ok <- Store.delete(hash) do
-      {:ok, <<>>, [log(:HTLC_Claimed, hash, preimage)]}
-    else
-      :none -> {:revert, "no lock for hash"}
-      false -> {:revert, "deadline passed or not receiver"}
-    end
+  def execute(@claim_selector, <<hash::binary-32, preimage::binary-32>>, ctx) do
+    do_claim(hash, preimage, ctx)
   end
 
-  def execute(@refund, <<hash::binary-32>>, ctx) do
-    with %{sender: s, amount: a, deadline: d} <- Store.get(hash),
-         true <- ctx.block_timestamp >= d,
-         true <- ctx.from == s,
-         :ok <- Accounts.credit(s, a),
-         :ok <- Store.delete(hash) do
-      {:ok, <<>>, [log(:HTLC_Refunded, hash)]}
-    else
-      :none -> {:revert, "no lock for hash"}
-      false -> {:revert, "deadline not reached or not sender"}
-    end
+  def execute(@refund_selector, <<hash::binary-32>>, ctx) do
+    do_refund(hash, ctx)
   end
+
+  def read(@get_swap_selector, <<hash::binary-32>>), do: do_get_swap(hash)
 end
 ```
 
-Roughly 40 lines end to end for a complete atomic-swap primitive. Three selectors, one ETS-backed state store keyed by hash, strict preconditions on each branch. Every state transition is one readable `with` chain: no reentrancy, no hidden loops, no gas surprise.
+The full handler is still small enough to review directly. Four selectors, one `state.htlc_swaps` row per hash, strict preconditions on each branch, and all balance updates inside the block's SERIALIZABLE transaction. No reentrancy, no hidden loops, no gas surprise.
+
+The bridge uses the same precompile model at `0x2D00…0003`: [`BridgeRefillMint`](https://github.com/igor53627/2d/blob/4d955b70efde1075e316d9ab2c2c10820fb0cd71/lib/chain/precompiles/bridge_refill_mint.ex) exposes only `bridge_lock(...)`, atomically inserts `bridge_mints` plus the receiver-bound HTLC row, and leaves the cross-chain proof to the verifier. The [bridge article](../bridge/) covers that flow in detail.
 
 ## Why this beats a bridge
 
@@ -184,7 +164,7 @@ An HTLC precompile has no validator set to compromise, no signature to forge, no
 
 The final row matters most. Bridge failures are *systemic*: one bug drains everything. HTLC failures are *per-swap*: one party can fail to claim or refund in time, and they lose at most what they put into that single lock. There is no "drain the bridge" threat model because there is no bridge.
 
-The precompile design also sidesteps a subtle problem with bridge-based swaps. **A bridge is a smart contract, and smart contracts on a VM are only as safe as their implementation and their upgrade controls**. A precompile is an Elixir module reviewed before it ships; its upgrade path is a node release, not a multisig transaction; its state is in an ETS table whose layout is statically known. The attack surface shifts from "does the contract do what the whitepaper says" to "does the Elixir code match the spec", and the latter is a problem formal methods can actually attack at scale.
+The precompile design also sidesteps a subtle problem with bridge-based swaps. **A bridge is a smart contract, and smart contracts on a VM are only as safe as their implementation and their upgrade controls**. A precompile is an Elixir module reviewed before it ships; its upgrade path is a node release, not a multisig transaction; its state layout is statically known in Postgres tables. The attack surface shifts from "does the contract do what the whitepaper says" to "does the Elixir code match the spec", and the latter is a problem formal methods can actually attack at scale.
 
 ## Tradeoffs against EVM
 
@@ -205,7 +185,7 @@ What you get in return:
 A closed, auditable precompile set opens doors in code verification that are genuinely difficult when the code set is "anything anyone wants to deploy":
 
 - **Tier 0 (baseline, today).** Dialyzer + Elixir 1.20 set-theoretic types give precompile modules real static guarantees. Function specs on the `@behaviour` callbacks already rule out whole classes of malformed-input bugs.
-- **Tier 1 (planned as real precompiles land).** Property-based tests via PropCheck, driving `execute/3` with random selector+args tuples against module-level invariants ("sum of balances preserved", "a lock exists iff it's in the store").
+- **Tier 1.** Property-based tests via PropCheck, driving `execute/3` with random selector+args tuples against module-level invariants ("sum of balances preserved", "a lock exists iff it's in the store").
 - **Tier 2 (concurrency).** Concuerror walks every possible interleaving of ETS reads and writes across the registry, the handler, and the block producer. It catches races and deadlocks that ordinary tests miss.
 - **Tier 3 (protocol).** TLA+ specs (generatable to runnable Erlang via Erla+) for precompiles whose correctness is a multi-step protocol rather than a single function. HTLC's "completed XOR rolled back, never partial" is the canonical target.
 
@@ -213,4 +193,4 @@ Each tier costs more and guards more than the one before. The point is to build 
 
 ## Where this is going
 
-The first precompile with real state is queued for implementation. The HTLC sketched above. Alongside it, the verification stack will come up in layers. Dialyzer and types in CI today. PropCheck properties the day a stateful handler lands. TLA+ specs for HTLC and any subsequent precompile whose correctness is a protocol rather than a single function.
+The first stateful precompiles are already live: HTLC settlement and bridge refill/mint. The next step is hardening the verification stack around them: Dialyzer and types in CI today, focused PropCheck properties for stateful handlers, and TLA+ specs for HTLC plus any subsequent precompile whose correctness is a protocol rather than a single function.

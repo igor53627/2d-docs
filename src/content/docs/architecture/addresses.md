@@ -19,7 +19,7 @@ account = keccak256(uncompressed_pubkey_without_prefix)[-20..]
 
 Twenty bytes. Same derivation, same bit layout. Every downstream difference between `0x…` and `T…` is a packaging choice on top of this.
 
-In 2D, this is [`Chain.Crypto.recover_tron_sender/2`](https://github.com/igor53627/2d/blob/c68ddb7/lib/chain/crypto.ex#L25-L44): a Tron signature recovers to the exact same 20 bytes an Ethereum signature would.
+In 2D, this is [`Chain.Crypto.recover_tron_sender/2`](https://github.com/igor53627/2d/blob/4d955b70efde1075e316d9ab2c2c10820fb0cd71/lib/chain/crypto.ex#L28-L53): a Tron signature recovers to the exact same 20 bytes an Ethereum signature would.
 
 ## Packaging #1 — Ethereum (EIP-55 checksummed hex)
 
@@ -28,7 +28,7 @@ Ethereum addresses are just **hex-encoded 20 bytes** with a case-based checksum 
 - The display form is `0x` + 40 hex characters.
 - [EIP-55](https://eips.ethereum.org/EIPS/eip-55) uses the **case** of each hex character as a per-character checksum bit: if the corresponding nibble of `keccak256(lowercase_hex)` is `≥ 8`, the character is uppercased.
 
-That's the entire format. No version byte, no separate checksum bytes. Validation is: length == 42, case-mixed, and the case pattern matches `keccak256(lowercase)`. See [`Chain.Crypto.encode_address/1`](https://github.com/igor53627/2d/blob/c68ddb7/lib/chain/crypto.ex#L323-L340):
+That's the entire format. No version byte, no separate checksum bytes. Validation is: length == 42, case-mixed, and the case pattern matches `keccak256(lowercase)`. See [`Chain.Crypto.encode_address/1`](https://github.com/igor53627/2d/blob/4d955b70efde1075e316d9ab2c2c10820fb0cd71/lib/chain/crypto.ex#L380-L397):
 
 ```elixir
 def encode_address(<<address::binary-20>>) do
@@ -59,7 +59,7 @@ Tron inherits the **Bitcoin Base58Check** address format, customised:
 
 Because `0x41` is always the first byte of the payload, the result always starts with **`T`** when Base58-encoded. That's where `T…` comes from.
 
-See [`Chain.Tron.Address.encode/1`](https://github.com/igor53627/2d/blob/c68ddb7/lib/chain/tron/address.ex#L8-L13) and [`Base58.encode/1`](https://github.com/igor53627/2d/blob/c68ddb7/lib/chain/tron/base58.ex#L9-L20):
+See [`Chain.Tron.Address.encode/1`](https://github.com/igor53627/2d/blob/4d955b70efde1075e316d9ab2c2c10820fb0cd71/lib/chain/tron/address.ex#L31-L38) and [`Base58.encode/1`](https://github.com/igor53627/2d/blob/4d955b70efde1075e316d9ab2c2c10820fb0cd71/lib/chain/tron/base58.ex#L10-L22):
 
 ```elixir
 def encode(<<_::binary-20>> = address) do
@@ -69,7 +69,7 @@ def encode(<<_::binary-20>> = address) do
 end
 ```
 
-Validation ([`validate_check/1`](https://github.com/igor53627/2d/blob/c68ddb7/lib/chain/tron/address.ex#L48-L64)) reverses the process: Base58-decode → strip checksum → double-SHA the payload → compare.
+Validation ([`validate_check/1`](https://github.com/igor53627/2d/blob/4d955b70efde1075e316d9ab2c2c10820fb0cd71/lib/chain/tron/address.ex#L70-L88)) reverses the process: Base58-decode → strip checksum → double-SHA the payload → compare.
 
 ### The two checksums side by side
 
@@ -94,7 +94,7 @@ Different families, same goal — catch mistyped addresses before you sign a tra
 | Raw 21-byte hex | `41…` (42 hex chars) | Decode hex directly → assert `0x41` prefix → keep last 20 bytes |
 | Ethereum 20-byte hex | `0xf39Fd6…` (42 hex chars) | Strip `0x` → decode hex → keep all 20 bytes |
 
-The dispatcher is [`Chain.Tron.Wallet.parse_address_param/2`](https://github.com/igor53627/2d/blob/c68ddb7/lib/chain/tron/wallet.ex#L647-L667):
+The dispatcher is [`Chain.Tron.Wallet.parse_address_param/2`](https://github.com/igor53627/2d/blob/4d955b70efde1075e316d9ab2c2c10820fb0cd71/lib/chain/tron/wallet.ex#L674-L695):
 
 ```elixir
 defp parse_address_param(params, key) do
@@ -120,7 +120,7 @@ defp parse_address_param(params, key) do
 end
 ```
 
-The `0x…` + length-42 branch peels off Ethereum addresses early. Everything else — `T…`, `41…`, `0x41…` — falls through to [`Chain.Tron.Address.decode/1`](https://github.com/igor53627/2d/blob/c68ddb7/lib/chain/tron/address.ex#L15-L35), which handles all three Tron forms uniformly.
+The `0x…` + length-42 branch peels off Ethereum addresses early. Everything else — `T…`, `41…`, `0x41…` — falls through to [`Chain.Tron.Address.decode/1`](https://github.com/igor53627/2d/blob/4d955b70efde1075e316d9ab2c2c10820fb0cd71/lib/chain/tron/address.ex#L40-L61), which handles all three Tron forms uniformly.
 
 ## One key, two worlds
 
@@ -154,4 +154,4 @@ The chain stores the 20-byte key once. Every RPC handler decodes on the way in, 
 - [EIP-55 — Mixed-case checksum address encoding](https://eips.ethereum.org/EIPS/eip-55)
 - [Tron protocol — Tron Address Format](https://developers.tron.network/docs/account)
 - [Satoshi's original Base58Check definition in Bitcoin Core](https://github.com/bitcoin/bitcoin/blob/master/src/base58.h)
-- 2D source: [`lib/chain/tron/address.ex`](https://github.com/igor53627/2d/blob/c68ddb7/lib/chain/tron/address.ex), [`lib/chain/tron/base58.ex`](https://github.com/igor53627/2d/blob/c68ddb7/lib/chain/tron/base58.ex), [`lib/chain/crypto.ex`](https://github.com/igor53627/2d/blob/c68ddb7/lib/chain/crypto.ex)
+- 2D source: [`lib/chain/tron/address.ex`](https://github.com/igor53627/2d/blob/4d955b70efde1075e316d9ab2c2c10820fb0cd71/lib/chain/tron/address.ex), [`lib/chain/tron/base58.ex`](https://github.com/igor53627/2d/blob/4d955b70efde1075e316d9ab2c2c10820fb0cd71/lib/chain/tron/base58.ex), [`lib/chain/crypto.ex`](https://github.com/igor53627/2d/blob/4d955b70efde1075e316d9ab2c2c10820fb0cd71/lib/chain/crypto.ex)
