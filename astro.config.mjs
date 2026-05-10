@@ -1,11 +1,16 @@
 // @ts-check
 import { defineConfig } from 'astro/config';
 import starlight from '@astrojs/starlight';
+import rehypeMermaid from 'rehype-mermaid';
 
 // GitHub Pages deploy: https://igor53627.github.io/2d-docs/
 export default defineConfig({
 	site: 'https://igor53627.github.io',
 	base: '/2d-docs',
+	markdown: {
+		syntaxHighlight: { excludeLangs: ['mermaid'] },
+		rehypePlugins: [[rehypeMermaid, { strategy: 'inline-svg' }]],
+	},
 	integrations: [
 		starlight({
 			title: '2D docs',
@@ -80,6 +85,13 @@ export default defineConfig({
 								ru: 'Мост (HTLC + атомарный bridge-lock)',
 							},
 							slug: 'architecture/bridge',
+						},
+						{
+							label: 'Bridge operator HSM topology',
+							translations: {
+								ru: 'HSM-топология оператора моста',
+							},
+							slug: 'architecture/hsm-topology',
 						},
 						{
 							label: 'Running a verifier',

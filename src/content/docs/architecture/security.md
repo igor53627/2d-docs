@@ -9,10 +9,10 @@ description: How 2D protects against common attack vectors — input validation,
 
 There are four boundaries where untrusted input enters the system:
 
-1. **User to RPC** — wallets submit signed transactions via `eth_sendRawTransaction` or `/wallet/broadcasttransaction`. Input is untrusted hex, any size, any content.
+1. **User to RPC** — wallets submit signed transactions via `eth_sendRawTransaction` or `/wallet/broadcasttransaction`. Input is untrusted hex; Ethereum raw transactions are size-capped before decode, and Tron protobuf payloads are decoded and structurally validated before enqueue.
 2. **RPC to executor** — validated transactions sit in `pending_transactions` until the producer picks them up. The executor re-verifies sender identity from the signature.
 3. **Producer to verifier** — the verifier receives blocks over Erlang distribution. It trusts nothing: replays every transaction, recomputes every hash.
-4. **User to precompile** — calldata to precompile contracts (HTLC, future account settings) is parsed and validated per-contract.
+4. **User to precompile** — calldata to precompile contracts (HTLC, bridge refill/mint) is parsed and validated per-contract.
 
 ## Input validation at the RPC layer
 
@@ -21,7 +21,7 @@ Every transaction goes through several checks before reaching the pending pool:
 | Check | What it catches |
 |-------|-----------------|
 | Hex decode | Malformed input, non-hex characters |
-| Size limit (128 KB) | DoS via oversized payloads. Checked before decoding. |
+| Ethereum raw size limit (4 KB) | DoS via oversized `eth_sendRawTransaction` payloads. Checked before decoding. |
 | RLP / protobuf decode | Structurally invalid transactions |
 | Chain ID | Cross-chain replay (tx signed for Ethereum mainnet sent to 2D) |
 | Signature recovery | Invalid signatures, malleable signatures (EIP-2 s-value) |
@@ -74,4 +74,4 @@ The append-only history is protected by PostgreSQL rules that silently discard U
 ## What is not covered yet
 
 - **Privacy**: balances and transfer amounts are visible to anyone running a verifier. See the project roadmap for the privacy layer design.
-- **HSM block signing**: the producer's signing key is currently a software key. Hardware security module support is planned.
+- **HSM-backed block signing**: the producer's signing key is not yet wired through the chain runtime's HSM path. The pre-mainnet operator topology is documented in [HSM topology](../hsm-topology/).

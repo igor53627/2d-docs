@@ -1,5 +1,5 @@
 ---
-title: State roots — verifying the chain without validators
+title: "State roots: verifying the chain without validators"
 description: 2D has one block producer, not a validator set. State roots let any client independently verify that the producer computed the correct state.
 ---
 
@@ -14,7 +14,7 @@ Four tables from the state schema, sorted by primary key, each row hashed with k
 - **accounts** (address, balance, nonce). Every account that has ever received USD-stable.
 - **htlc_swaps** (hash, sender, receiver, amount, deadline, status, preimage). Every active or terminal atomic-swap lock.
 - **precompiles** (address, name, handler, enabled). The set of registered precompile contracts.
-- **bridge_mints** (eth_event_id, source triple, amount, applied block coordinates). One row per Ethereum `Locked` event the operator has refilled against. Inclusion is load-bearing: without it the dedup invariant would live only inside the table, and a producer could double-mint while still matching an honest verifier's replay. See the [bridge article](../bridge/) for the cross-chain check that re-validates each row.
+- **bridge_mints** (eth_event_id, source triple, amount, applied block coordinates, htlc_hash). One row per Ethereum `Locked` event the operator has refilled against. Inclusion is load-bearing: without it the dedup invariant would live only inside the table, and a producer could double-mint while still matching an honest verifier's replay. See the [bridge article](../bridge/) for the cross-chain check that re-validates each row.
 
 `blocks_tip` (the singleton that caches the current head pointer) is deliberately excluded. It is a convenience cache, not consensus state. Including it would create a circular dependency: the state root must be computed before the tip is updated, but the tip update happens in the same transaction.
 
@@ -41,7 +41,7 @@ block_hash = keccak256(
  || parent_hash    (32 bytes)
  || timestamp      (8 bytes)
  || tx_root        (32 bytes, hash of all tx hashes in execution order)
- || state_root     (32 bytes, the Merkle root above)
+ || state_root     (32 bytes, the sorted-hash root above)
 )
 ```
 
@@ -101,7 +101,7 @@ Additional verifiers can chain off the first one instead of connecting to the pr
 
 The current implementation is a sorted-hash: it queries every row from each state table, sorts by primary key, hashes, and concatenates. This is O(n) per block over the full state size, which is fine for a chain with fewer than a million accounts.
 
-When the state grows, the plan is to migrate to an incremental Merkle tree that updates only the rows that changed in the current block. That brings the per-block cost down to O(k log n) where k is the number of changed rows. The state root value stays the same (it is a property of the state, not the algorithm), so the migration is transparent to verifiers.
+When the state grows, the plan is to migrate to an incremental Merkle tree that updates only the rows changed in the current block. That brings the per-block cost down to O(k log n), where k is the number of changed rows. Such a migration is a consensus change: it needs a versioned rollout so every verifier computes the same root for the same block.
 
 ## Why this matters for cross-chain bridges
 
