@@ -9,9 +9,9 @@ The audience is operators, security reviewers, and anyone evaluating the deploym
 
 ## Why operator keys are the weak point
 
-The bridge's defense-in-depth chain treats every operator-key-derived signature as untrusted by default. The on-chain layers (`OperatorVault`'s `bridgeOut` caps, the verifier's claimer-allowlist binding) constrain what a signature can express even when the key is fully compromised. But "the key is fully compromised" is exactly the assumption to plan around: a single attacker with root on the host that holds the operator's keys is the single most expensive thing that can happen to the bridge, and the topology has to keep that one event from ending the chain.
+The bridge's defense-in-depth chain treats every operator-key-derived signature as untrusted by default. The on-chain layers (`OperatorVault`'s `bridgeOut` caps, the verifier's claimer-allowlist binding) constrain what a signature can express even when the key is fully compromised. But "the key is fully compromised" is exactly the assumption to plan around: a single attacker with root on the host that holds the operator's keys is the highest-impact host failure the bridge has to survive, and the topology has to keep that one event from ending the chain.
 
-Two operator keys are enough to drain a wrapped bridge of the conventional kind; the same two keys are not enough to drain 2D's, because the on-chain layers refuse outbound calls outside a bounded shape. But host compromise is still where everything else starts. If `vault dev`, an OPA sidecar, and an NetHSM image all run as services on one Linux box, root on that box reads memory, swaps the OPA bundle, and signs whatever it wants. The off-chain defenses go down together, in one step.
+Two operator keys are enough to drain a wrapped bridge of the conventional kind; the same two keys are not enough to drain 2D's, because the on-chain layers refuse outbound calls outside a bounded shape. But host compromise is still where everything else starts. If `vault dev`, an OPA sidecar, and a NetHSM image all run as services on one Linux box, root on that box reads memory, swaps the OPA bundle, and signs whatever it wants. The off-chain defenses go down together, in one step.
 
 The topology splits the off-chain signing path into three logical hosts on three independent trust boundaries, and adds AMD SEV-SNP confidential VMs around the security-critical components so host-root compromise on the underlying machine does not even read the in-memory keys. The on-chain layer then sits below all three as the durable last line.
 
@@ -23,9 +23,9 @@ The bridge operator is operationally one party. Cryptographically it uses two di
 
 **Ethereum-side key.** Signs `bridgeOut(address,uint256)` on the deployed `OperatorVault` smart contract. Cannot transfer USDC arbitrarily: the only privileged outflow is `bridgeOut`, bounded on-chain by `bridgeOutAllowlist`, `perTxCap`, and an exact rolling 24h `cumulativeCap`. Cannot call `lock`, cannot call `refund`, cannot call any other contract.
 
-**Producer key.** Signs the block headers the block producer emits. Has no bridge authority — bridge claims do not flow through this key — but its compromise lets an attacker produce blocks against the chain rules, so it lives behind the same hardware/TEE substrate as the bridge keys, in its own namespace, with its own signing path that bypasses the bridge policy layer.
+**Producer key.** Signs the block headers the block producer emits. Has no bridge authority — bridge claims do not flow through this key — but its compromise lets an attacker abuse block-production authority until verifier consensus or operational halt paths stop it. Invalid blocks still remain subject to the chain rules. The key therefore lives behind the same hardware/TEE substrate as the bridge keys, in its own namespace, with its own signing path that bypasses the bridge policy layer.
 
-The three keys live in three NetHSM **namespaces** on the same HSM image: a `bridge` namespace with `2d_side` and `eth_side` tags for the two operator keys, and a separate `producer` namespace for the block-signing key. Namespace isolation at the NetHSM layer means a request scoped to one namespace cannot reach another even if the calling client is fully compromised.
+The three keys live in two NetHSM **namespaces** on the same HSM image: a `bridge` namespace with `2d_side` and `eth_side` key tags for the two operator keys, and a separate `producer` namespace for the block-signing key. Namespace isolation at the NetHSM layer means a request scoped to one namespace cannot reach another even if the calling client is fully compromised.
 
 ## Three logical hosts
 
@@ -34,6 +34,8 @@ A "host" in this document means a logical host — a separate VM or a separate p
 - **Host A — orchestrator.** The Elixir bridge process: HTTP API, Ethereum chain watcher, operator database. Most exposed to user traffic. Treated as compromise-prone, even though it is the same code we wrote.
 - **Host B — signing service.** HashiCorp Vault Transit + an OPA sidecar enforcing a calldata-aware allowlist. Vault holds session identity, OPA evaluates the policy bundle, the HSM signs only what passes both. Network rules let only Host A talk to Host B inbound, and only Host B talk to Host C outbound for bridge signing.
 - **Host C — HSM root.** The NetHSM image, holding all three keys behind namespace isolation. Network rules let Host B reach the `bridge` namespace and the block producer reach the `producer` namespace; everything else is dropped. Management interface lives on a separate, locked-down network segment with M-of-N admin quorum.
+
+From staging onward the block producer runs in its own SEV-SNP VM for blast-radius reasons. It is shown separately because its signing path bypasses Host B, but it is not a fourth host in the bridge signing path: bridge signatures still traverse Host A → Host B → Host C.
 
 ```mermaid
 flowchart LR
@@ -62,13 +64,13 @@ flowchart LR
 
 The block producer's signing path bypasses Host B by design. Block-header digests have a fixed shape, the producer key is namespaced at the HSM level, and routing producer signatures through the bridge-side OPA bundle adds latency without adding policy that matters for header signing. So the rule is **Host B → Host C `bridge` namespace** *and* **BP host → Host C `producer` namespace**, drop everything else.
 
-Two-host (orchestrator + Vault-with-HSM-on-same-box) collapses on Host B root compromise: attacker bypasses OPA and calls the HSM management API directly. Three-host puts a network boundary between policy decision (Host B) and key holding (Host C); compromise of B still requires further movement to dump the HSM key.
+Two-host (orchestrator + Vault-with-HSM-on-same-box) collapses on Host B root compromise: attacker bypasses OPA and calls the HSM management API directly. Three-host puts a network boundary between policy decision (Host B) and key holding (Host C); compromise of B still requires further movement to reach key material or the HSM management plane.
 
 Zero-host (fully on-chain) is convenient but every transaction proceeds with no off-chain throttling. Host A is unavoidable: it generates calldata in the first place. Host B and Host C add throttle layers on top; without them, a Host A compromise is one step away from "signed anything" until the on-chain `OperatorVault` catches it.
 
 ## The signing path
 
-A successful bridge claim signature traverses every host in order:
+A successful bridge signing request traverses every bridge host in order:
 
 ```mermaid
 sequenceDiagram
@@ -96,7 +98,7 @@ sequenceDiagram
   end
 ```
 
-The OPA bundle is a signed Rego policy that mirrors the in-process Elixir allowlist on Host A: 2D-side requests must target `0x2D00…0003` with the `bridge_lock(...)` selector; Ethereum-side requests must target the configured `OperatorVault` with `bridgeOut(address,uint256)`. Anything else — direct ERC-20 transfers, `lock()`, `refund()`, calls to any other contract — is rejected at policy time, before the HSM is asked to sign at all.
+The OPA bundle is a signed Rego policy that must stay in lockstep with the in-process Elixir allowlist on Host A. In the post-`OperatorVault` production posture described here, 2D-side requests must target `0x2D00…0003` with the `bridge_lock(...)` selector, and Ethereum-side requests must target the configured `OperatorVault` with `bridgeOut(address,uint256)`. Anything else — direct ERC-20 transfers, `lock()`, `refund()`, calls to any other contract — is rejected at policy time, before the HSM is asked to sign at all.
 
 The bundle is hot-reloadable without restarting the signer, so policy updates do not interrupt service; bundle distribution is on its own admin-only path and never on the orchestrator → signer connection. Host B has a read-only filesystem where possible, and mTLS with cert pinning between every cross-host call.
 
@@ -126,7 +128,7 @@ architecture-beta
   hsm:R --> L:verifier
 ```
 
-The trust model that buys is specific, and it is worth spelling out so reviewers can challenge it directly:
+This buys a specific trust model, and it is worth spelling out so reviewers can challenge it directly:
 
 | Assumption | Status |
 |---|---|
@@ -150,7 +152,7 @@ Each layer below is a separate door. An attacker has to open every door before c
 | AMD SEV-SNP confidentiality | Hosts B, C, BP | Host-root and hypervisor reads of VM memory. Even with `sudo` on the underlying machine, the operator keys are not extractable. |
 | Network policy + mTLS pinning | Cross-host | Signing connections from anywhere except the explicitly allowed peer. Bundle distribution is on its own admin path. |
 | Verifier claimer-allowlist binding | On-chain (every honest verifier) | `bridge_lock` for an Ethereum `Locked` event whose `claimer` is not in the allowlist. Closes 2D-side-only key compromise. |
-| `OperatorVault` on-chain caps | Ethereum, deployed | `bridgeOut` outside `bridgeOutAllowlist`, above `perTxCap`, or above the rolling 24h `cumulativeCap`. Closes Ethereum-side-only key compromise. |
+| `OperatorVault` on-chain caps | Ethereum, deployed | `bridgeOut` outside `bridgeOutAllowlist`, above `perTxCap`, or above the rolling 24h `cumulativeCap`. Bounds Ethereum-side-only key compromise to the configured policy envelope. |
 | Vault governance behind multisig + timelock | Ethereum, governance principal | Caps, allowlists, and signing-key rotation outside the time-windowed authority of the governance multisig. |
 
 Layers two through five are why the topology has three hosts instead of one. Skipping the host split keeps the layers in source code but collapses the door count from many to one.
@@ -161,10 +163,11 @@ The table below tracks the worst case for each compromise scope. "On-chain layer
 
 | Compromise scope | What still holds |
 |---|---|
-| Host A only | For **bridge** signing: Vault and OPA on Host B see the calldata, refuse anything outside the allowlist; a compromised orchestrator cannot get a signed bridge payload outside scope. For **block-producer** signing: the BP-direct path to Host C `producer` namespace bypasses Host B by design, so producer-key signatures are not policy-gated off-chain on Host A compromise. Block-content abuse (censorship, fraudulent inclusion within the ruleset) is then bounded only by the chain ruleset itself and verifier consensus on cross-chain bindings. Bridge supply remains protected by the verifier's claimer-allowlist binding; broader BP-key abuse needs the on-chain layers to catch. |
+| Host A only | For **bridge** signing: Vault and OPA on Host B see the calldata, refuse anything outside the allowlist; a compromised orchestrator cannot get a signed bridge payload outside scope. The separate BP host and `producer` namespace are not reachable from this path in the staging/mainnet topology. |
+| BP host / producer key only | Bridge signing is unaffected because the BP path can reach only Host C's `producer` namespace. The attacker can abuse block-production authority for censorship, ordering, or valid-but-hostile block proposals until verifier consensus or halt paths respond; invalid blocks still fail chain-rule validation. |
 | Host A + Host B | Sign-anything is now possible at the off-chain layer. The on-chain layer is the only protection: verifier claimer-allowlist binding (replayed by every honest verifier) plus `OperatorVault` caps (allowlist, per-tx, rolling 24h). The combination still bounds drain to `cumulativeCap` per 24h and rejects unbacked mint. |
 | Host A + Host B + Host C | Off-chain layer is fully subverted. On-chain layer still holds: verifier consensus rejects unbacked mints, `OperatorVault` rejects out-of-scope outflows. |
-| All hosts plus verifier majority plus `OperatorVault` governance | Catastrophic. Recovery via halt paths and governance reset. Outside the designed defense scope. |
+| All hosts including BP, plus verifier majority plus `OperatorVault` governance | Catastrophic. Recovery via halt paths and governance reset. Outside the designed defense scope. |
 
 The on-chain layer's coverage is the same regardless of which physical hardware the off-chain layer ran on, which is why the topology document and the safety document treat them as separate concerns.
 
