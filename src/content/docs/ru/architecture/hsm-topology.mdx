@@ -124,8 +124,8 @@ architecture-beta
   orch:R --> L:vault
   vault:B --> T:hsm
   bp:R --> L:hsm
-  vault:R --> L:ovault
-  hsm:R --> L:verifier
+  orch:R --> L:ovault
+  bp:R --> L:verifier
 ```
 
 Эта модель доверия опирается на конкретный набор предположений, и его стоит выписать явно, чтобы ревьюер мог их оспорить:

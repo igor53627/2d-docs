@@ -124,8 +124,8 @@ architecture-beta
   orch:R --> L:vault
   vault:B --> T:hsm
   bp:R --> L:hsm
-  vault:R --> L:ovault
-  hsm:R --> L:verifier
+  orch:R --> L:ovault
+  bp:R --> L:verifier
 ```
 
 This buys a specific trust model, and it is worth spelling out so reviewers can challenge it directly:
