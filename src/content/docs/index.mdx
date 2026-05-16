@@ -27,7 +27,7 @@ import { Card, CardGrid } from '@astrojs/starlight/components';
 - **One Account, Two Ecosystems:** A single underlying account state natively supports both **Ethereum JSON-RPC** (MetaMask, viem) and the **Tron HTTP API** (TronLink). A transfer sent from TronLink is instantly visible in MetaMask.
 - **Zero Gas Fees:** Every transaction is completely free. Instead of charging users, 2D uses an elegant sliding-window throttle to prevent spam without rejecting legitimate high-frequency senders.
 - **Instant Finality:** Blocks are final the moment they are created. No waiting for confirmations, no complex mempool management, and zero risk of chain reorganizations.
-- **Verifiable Security:** Trust is minimized. Independent read-only verifier nodes cryptographically replay and validate every block before serving state to wallets, ensuring the network remains honest.
+- **Verifiable Security:** Trust is minimized. Independent read-only verifier nodes cryptographically replay and validate every block before serving state to wallets, refusing to serve any invalid producer state.
 
 ## Explore the Architecture
 
