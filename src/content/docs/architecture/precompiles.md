@@ -3,11 +3,11 @@ title: "Precompiles: extending 2D without an EVM"
 description: Every chain eventually needs custom on-chain logic. 2D reaches for a short list of Elixir modules each of which fits in one file and can be read end to end, instead of an EVM. That design choice opens doors a wrapped bridge can't reach.
 ---
 
-A chain that only moves value can't do much. Lending, escrows, swaps, authenticated oracle writes, atomic on-ramps; every serious protocol stack needs on-chain code beyond "debit A, credit B".
+A chain that only moves value has limited utility. Lending, escrows, swaps, authenticated oracle writes, and atomic on-ramps—every serious protocol stack requires on-chain code beyond simple "debit A, credit B" operations.
 
-The default answer across the industry is an **EVM**: a general-purpose bytecode interpreter that runs arbitrary code anyone can deploy. The price is well known. Gas metering, a language designed around that metering, a whole VM attack surface, and the open question of what happens when untrusted code does unexpected things to your state.
+The default answer across the industry is an **EVM**: a general-purpose bytecode interpreter that runs arbitrary code deployed by anyone. The associated costs are well known: gas metering, a language designed around that metering, a comprehensive VM attack surface, and the open question of what happens when untrusted code interacts unexpectedly with your state.
 
-2D takes a different path: a **small, explicit precompile registry**. Each "contract" is an Elixir module that fits in one file and implements a fixed behaviour at a fixed address in the `0x2D00…` namespace. There is no bytecode interpreter, no gas-metering layer to get wrong, and because the code set is closed, no question about what runs. You know it because the operator shipped it.
+2D takes a different path: a **small, explicit precompile registry**. Each "contract" is an Elixir module that fits in a single file and implements a fixed behavior at a fixed address within the `0x2D00…` namespace. There is no bytecode interpreter, no gas-metering layer to misconfigure, and because the code set is closed, there is no ambiguity about what runs. You know exactly what it is because the operator shipped it.
 
 This article walks through how a transaction finds a precompile, what the `@behaviour Chain.Precompile` asks of an implementer, where the registry lives, what the live HTLC precompile looks like, and why that model is stricter than a wrapped bridge.
 
