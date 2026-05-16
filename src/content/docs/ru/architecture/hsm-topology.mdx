@@ -220,7 +220,7 @@ Append-only `bridge_audit_log` лежит на Postgres-е Host A с `REVOKE UPD
 
 На pre-mainnet off-chain слой полностью крутится в SEV-SNP VM на EPYC-процессорах, без физического HSM в топологии. Это решение пересматривается к mainnet launch с учётом value at risk и AMD PSP CVE landscape. Какой бы выбор там ни случился, маршрут orchestrator → Vault → NetHSM остаётся прежним и on-chain слой держит свои капы; HSM-субстрат меняется за тем же REST endpoint.
 
-## Как это вписывается в остальную цепь
+## Место в общей архитектуре
 
 - [Статья про мост](../bridge/) разбирает протокол, несущие cross-chain привязки верификатора и receipt-block проверку claimer/hash; здесь мы даём контекст развёртывания, который позволяет safety-аргументам моста выдерживать host-root-атакующих.
 - [Статья про verifier](../verifier/) описывает block-by-block recheck верификатора, включая cross-chain hook, читающий через helios sidecar.
