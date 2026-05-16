@@ -3,16 +3,16 @@ title: Security model
 description: How 2D protects against common attack vectors — input validation, replay prevention, anti-spam, and the trust boundaries between producer, verifier, and wallets.
 ---
 
-2D has one block producer and one or more independent verifiers. This is a simpler trust model than a validator set, but it still has boundaries that need defending. This page documents the attack vectors we considered and how each is handled.
+2D operates with a single block producer and one or more independent verifiers. While this trust model is simpler than a traditional validator set, it still contains boundaries that require defense. This page documents the considered attack vectors and how each is mitigated.
 
 ## Trust boundaries
 
-There are four boundaries where untrusted input enters the system:
+There are four primary boundaries where untrusted input enters the system:
 
-1. **User to RPC** — wallets submit signed transactions via `eth_sendRawTransaction` or `/wallet/broadcasttransaction`. Input is untrusted hex; Ethereum raw transactions are size-capped before decode, and Tron protobuf payloads are decoded and structurally validated before enqueue.
-2. **RPC to executor** — validated transactions sit in `pending_transactions` until the producer picks them up. The executor re-verifies sender identity from the signature.
-3. **Producer to verifier** — the verifier receives blocks over Erlang distribution. It trusts nothing: replays every transaction, recomputes every hash.
-4. **User to precompile** — calldata to precompile contracts (HTLC, bridge refill/mint) is parsed and validated per-contract.
+1. **User to RPC** — Wallets submit signed transactions via `eth_sendRawTransaction` or `/wallet/broadcasttransaction`. The input is untrusted hex; Ethereum raw transactions are size-capped before decoding, and Tron protobuf payloads are decoded and structurally validated before being enqueued.
+2. **RPC to executor** — Validated transactions reside in the `pending_transactions` pool until the producer processes them. The executor re-verifies the sender's identity using the signature.
+3. **Producer to verifier** — The verifier receives blocks via Erlang distribution. It operates on a zero-trust basis: replaying every transaction and independently recomputing every hash.
+4. **User to precompile** — Calldata directed to precompile contracts (such as HTLC or bridge refill/mint) is parsed and validated on a per-contract basis.
 
 ## Input validation at the RPC layer
 
@@ -31,11 +31,11 @@ Malformed addresses and topics in `eth_getLogs` return error responses instead o
 
 ## Replay and nonce protection
 
-Each account has a sequential nonce. The executor checks that the transaction nonce matches the current account nonce exactly. A transaction cannot execute twice because the nonce increments after each execution.
+Each account maintains a sequential nonce. The executor verifies that the transaction nonce matches the current account nonce exactly. A transaction cannot be executed twice because the nonce increments immediately after execution.
 
-Cross-chain replay is blocked at both the RPC layer and the executor: transactions must carry the correct chain ID (11565 for 2D). Pre-EIP-155 transactions (no chain ID) are rejected.
+Cross-chain replay attacks are blocked at both the RPC layer and the executor: transactions must include the correct chain ID (11565 for 2D). Pre-EIP-155 transactions (which lack a chain ID) are strictly rejected.
 
-Duplicate transaction hashes are handled with `ON CONFLICT DO NOTHING` at insertion. Submitting the same signed transaction twice has no effect.
+Duplicate transaction hashes are managed using `ON CONFLICT DO NOTHING` during database insertion. Submitting the identical signed transaction multiple times has no additional effect.
 
 ## Anti-spam throttle
 

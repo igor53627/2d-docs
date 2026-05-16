@@ -3,9 +3,9 @@ title: "State roots: verifying the chain without validators"
 description: 2D has one block producer, not a validator set. State roots let any client independently verify that the producer computed the correct state.
 ---
 
-Most blockchains rely on a set of validators to reach consensus on what the current state is. 2D has a single block producer. That makes block creation fast and simple, but it also means there is no built-in second opinion. If the producer is compromised, it could write whatever state it wants.
+Most blockchains rely on a set of validators to reach consensus on the current state. 2D utilizes a single block producer. This approach makes block creation fast and simple, but it also means there is no built-in second opinion. If the producer is compromised, it could theoretically write any state it desires.
 
-State roots fix this. After every block, the producer computes a cryptographic fingerprint of all mutable state and commits it into the block hash. Any client that replays the block's transactions against the previous state can independently recompute that fingerprint and compare. A mismatch means the producer lied. No validator set required.
+State roots resolve this vulnerability. After every block, the producer computes a cryptographic fingerprint of all mutable state and commits it into the block hash. Any client that replays the block's transactions against the previous state can independently recompute that fingerprint and compare it. A mismatch indicates that the producer provided false data. No validator set is required.
 
 ## What goes into the state root
 
@@ -56,7 +56,7 @@ The chain ships an independent verifier client. For every block, it:
 3. Computes its own state root.
 4. Compares with the producer's claimed root.
 5. If they match: commits the block and serves the verified state to wallets and RPC clients.
-6. If they don't: rolls back, logs a critical alert, refuses to serve.
+6. If they don't: rolls back, logs a critical warning, refuses to serve.
 
 The verifier runs as a separate BEAM node with its own database. It has no direct access to the producer's storage. Users connect to the verifier's RPC, not the producer's. Multiple verifiers can run independently. Anyone can run one.
 

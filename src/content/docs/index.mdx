@@ -3,7 +3,7 @@ title: 2D
 description: Documentation for the 2D chain — a Tron- and Ethereum-compatible L1 with a USD-stable base asset, instant finality, and gasless transactions.
 template: splash
 hero:
-  tagline: An L1 that speaks both Ethereum and Tron over the same account state.
+  tagline: A Layer-1 network that supports both Ethereum and Tron protocols over a unified account state.
   actions:
     - text: Read the docs
       link: architecture/addresses/
@@ -22,12 +22,12 @@ import { Card, CardGrid } from '@astrojs/starlight/components';
 
 ## What is 2D?
 
-2D is a Layer-1 chain with a single base asset (a USD-stable) and two wallet surfaces on the same account state:
+2D is a Layer-1 chain with a single base asset (a USD-stable) and two wallet interfaces operating over a unified account state:
 
 - **Ethereum JSON-RPC** (`eth_*`) on `/` for MetaMask, ethers.js, viem.
 - **Tron wallet HTTP API** (`/wallet/*`) for TronLink, TronWeb.
 
-A transfer sent from TronLink is visible to `eth_getTransactionByHash` moments later, because both APIs read and write the same accounts table. Blocks land with instant finality (no confirmations, no reorgs), and independent verifier nodes replay every one before serving it to wallets.
+A transfer sent from TronLink is visible to `eth_getTransactionByHash` moments later, because both APIs read and write to the same underlying accounts table. Blocks achieve instant finality (no confirmations, no reorgs), and independent verifier nodes replay every block before serving state to wallets.
 
 ## Articles
 

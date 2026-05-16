@@ -1,13 +1,13 @@
 ---
 title: Tron & Ethereum addresses in 2D
-description: One 20-byte account, two encoding lineages — how 2D makes TronLink and MetaMask see the same balance.
+description: One 20-byte account, two encoding lineages — how 2D ensures TronLink and MetaMask display the same balance.
 ---
 
 An Ethereum address looks like `0xf39Fd6…`. A Tron address looks like `TR7NHq…`. Different alphabets, different checksums, different ecosystems — on sight they feel like two unrelated things.
 
-They aren't. Underneath both strings is the **same 20-byte account**, derived the same way from a secp256k1 public key. Everything else — the `0x` or `T` prefix, the case pattern, the Base58 alphabet — lives in the encoding layer wrapping those 20 bytes on the way out.
+In reality, they are not. Underneath both strings lies the **same 20-byte account**, derived in the exact same way from a secp256k1 public key. Everything else — the `0x` or `T` prefix, the case pattern, the Base58 alphabet — resides in the encoding layer that wraps those 20 bytes on the way out.
 
-2D is a chain that stores accounts in that shared 20-byte form and renders them in either dialect on demand. A transfer sent from TronLink lands in the same account MetaMask reads through `eth_getBalance`. This article walks through it in order: how the 20-byte address is derived, the two encoding schemes (EIP-55 checksummed hex and Base58Check), and where in `lib/chain/` the chain figures out which form it was handed.
+2D stores accounts in this shared 20-byte format and renders them in either dialect on demand. A transfer sent from TronLink lands in the same account that MetaMask reads via `eth_getBalance`. This article explains how the 20-byte address is derived, details the two encoding schemes (EIP-55 checksummed hex and Base58Check), and shows how the chain identifies the provided format.
 
 ## The shared foundation
 
@@ -17,9 +17,9 @@ Ethereum and Tron both derive an account from a **secp256k1 public key**:
 account = keccak256(uncompressed_pubkey_without_prefix)[-20..]
 ```
 
-Twenty bytes. Same derivation, same bit layout. Every downstream difference between `0x…` and `T…` is a packaging choice on top of this.
+The result is twenty bytes with the same derivation and bit layout. Every downstream difference between `0x…` and `T…` is merely a packaging choice on top of this foundation.
 
-In 2D, this is [`Chain.Crypto.recover_tron_sender/2`](https://github.com/igor53627/2d/blob/4d955b70efde1075e316d9ab2c2c10820fb0cd71/lib/chain/crypto.ex#L28-L53): a Tron signature recovers to the exact same 20 bytes an Ethereum signature would.
+In 2D, this is handled by [`Chain.Crypto.recover_tron_sender/2`](https://github.com/igor53627/2d/blob/4d955b70efde1075e316d9ab2c2c10820fb0cd71/lib/chain/crypto.ex#L28-L53): a Tron signature recovers to the exact same 20 bytes as an Ethereum signature.
 
 ## Packaging #1 — Ethereum (EIP-55 checksummed hex)
 
@@ -28,7 +28,7 @@ Ethereum addresses are just **hex-encoded 20 bytes** with a case-based checksum 
 - The display form is `0x` + 40 hex characters.
 - [EIP-55](https://eips.ethereum.org/EIPS/eip-55) uses the **case** of each hex character as a per-character checksum bit: if the corresponding nibble of `keccak256(lowercase_hex)` is `≥ 8`, the character is uppercased.
 
-That's the entire format. No version byte, no separate checksum bytes. Validation is: length == 42, case-mixed, and the case pattern matches `keccak256(lowercase)`. See [`Chain.Crypto.encode_address/1`](https://github.com/igor53627/2d/blob/4d955b70efde1075e316d9ab2c2c10820fb0cd71/lib/chain/crypto.ex#L380-L397):
+This constitutes the entire format: no version byte and no separate checksum bytes. Validation requires the length to be 42 and the case pattern to match `keccak256(lowercase)`. See [`Chain.Crypto.encode_address/1`](https://github.com/igor53627/2d/blob/4d955b70efde1075e316d9ab2c2c10820fb0cd71/lib/chain/crypto.ex#L380-L397):
 
 ```elixir
 def encode_address(<<address::binary-20>>) do
@@ -51,7 +51,7 @@ end
 
 ## Packaging #2 — Tron (version-prefixed Base58Check)
 
-Tron inherits the **Bitcoin Base58Check** address format, customised:
+Tron inherits the **Bitcoin Base58Check** address format with specific customizations:
 
 1. **Prefix the 20-byte payload with the version byte `0x41`** — Tron mainnet's equivalent of Bitcoin's `0x00`. The payload becomes 21 bytes: `0x41 || addr`.
 2. **Compute a 4-byte checksum**: `sha256(sha256(payload))[:4]`. That's *double* SHA-256, same as Bitcoin.
@@ -89,10 +89,10 @@ Different families, same goal — catch mistyped addresses before you sign a tra
 
 | Form | Example | How 2D decodes it |
 |---|---|---|
-| Tron Base58Check | `TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t` | Strip `T…` → `Base58.decode` → `validate_check` → drop 0x41 → 20 bytes |
-| 0x-prefixed 21-byte hex | `0x41…` (42 hex chars) | Strip `0x` → decode hex → assert first byte is `0x41` → keep last 20 bytes |
-| Raw 21-byte hex | `41…` (42 hex chars) | Decode hex directly → assert `0x41` prefix → keep last 20 bytes |
-| Ethereum 20-byte hex | `0xf39Fd6…` (42 hex chars) | Strip `0x` → decode hex → keep all 20 bytes |
+| Tron Base58Check | `TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t` | `Base58.decode` → `validate_check` → drop `0x41` → 20 bytes |
+| 0x-prefixed 21-byte hex | `0x41…` (42 hex chars / 44 chars total) | Strip `0x` → decode hex → assert first byte is `0x41` → keep last 20 bytes |
+| Raw 21-byte hex | `41…` (42 hex chars / 42 chars total) | Decode hex directly → assert `0x41` prefix → keep last 20 bytes |
+| Ethereum 20-byte hex | `0xf39Fd6…` (40 hex chars / 42 chars total) | Strip `0x` → decode hex → keep all 20 bytes |
 
 The dispatcher is [`Chain.Tron.Wallet.parse_address_param/2`](https://github.com/igor53627/2d/blob/4d955b70efde1075e316d9ab2c2c10820fb0cd71/lib/chain/tron/wallet.ex#L674-L695):
 
