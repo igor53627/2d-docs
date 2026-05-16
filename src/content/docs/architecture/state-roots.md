@@ -56,7 +56,7 @@ The chain ships an independent verifier client. For every block, it:
 3. Computes its own state root.
 4. Compares with the producer's claimed root.
 5. If they match: commits the block and serves the verified state to wallets and RPC clients.
-6. If they don't: rolls back, logs a critical alert, refuses to serve.
+6. If they don't: rolls back, logs a critical warning, refuses to serve.
 
 The verifier runs as a separate BEAM node with its own database. It has no direct access to the producer's storage. Users connect to the verifier's RPC, not the producer's. Multiple verifiers can run independently. Anyone can run one.
 

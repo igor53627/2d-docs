@@ -37,8 +37,8 @@ The verifier needs its own database. It never shares storage with the producer.
 On first boot with an empty database:
 
 1. The syncer connects to the upstream node via Erlang distribution.
-2. It subscribes to the live block feed, then starts catching up from block 0.
-3. For genesis (block 0), the verifier independently creates the same initial accounts and computes the expected state root. It compares against the genesis block received from upstream. If they match, genesis is committed locally.
+2. It asks the upstream node for its current tip, then fetches blocks in batches from its own last known block, verifying each one (catch-up).
+3. Once caught up, it subscribes to the live block feed and processes blocks as they arrive.
 4. For every subsequent block, the verifier replays all transactions, recomputes the state root and block hash, and commits only if both match.
 5. Once caught up, the verifier processes live blocks as they arrive. Blocks already committed during catch-up are skipped by number.
 
@@ -50,7 +50,7 @@ For every block (including genesis), the verifier independently verifies:
 
 | Check | What it catches |
 |-------|-----------------|
-| **state_root** | Producer wrote state that doesn't follow from the transactions. Covers balances, HTLC swaps, precompile registrations. |
+| **state_root** | Producer wrote state that doesn't follow from the transactions. Covers balances, HTLC swaps, precompile registrations, and `bridge_mints`. |
 | **transactions_root** | Producer substituted, added, or removed transactions from the block. |
 | **block_hash** | Any field in the block header was tampered with after construction. |
 | **parent_hash** | Block doesn't chain correctly from the previous one. Fork detection. |
@@ -94,7 +94,7 @@ Producer ──▶ Verifier A ──▶ Verifier C
 The producer and verifier connect via Erlang distribution. Two ports, both firewalled:
 
 - **EPMD port** (4369 by default): the Erlang Port Mapper Daemon.
-- **Distribution port** (configured in `vm.args` or `RELEASE_DISTRIBUTION`): the actual data channel, TLS encrypted.
+- **Distribution port** (configured via `inet_dist_listen_min` and `inet_dist_listen_max` in `vm.args` or kernel config): the actual data channel, TLS encrypted. The `RELEASE_DISTRIBUTION` environment variable controls the distribution mode (`name`/`sname`/`none`), not the port.
 
 The producer exposes no public HTTP ports. All user traffic goes through the verifier.
 
@@ -109,8 +109,8 @@ Users ──▶ Verifier (port 4000, public) ──▶ Producer (Erlang dist onl
 | Upstream unreachable at boot | Retry catch-up every 5 seconds until connected |
 | Upstream goes down mid-sync | Live events stop arriving; reconnect and catch-up on recovery |
 | Block gap (missed blocks) | Automatic catch-up from upstream BlockFeed |
-| state_root mismatch | Halt. Log critical alert. Stop serving RPC. |
-| block_hash mismatch | Halt. Log critical alert. Stop serving RPC. |
+| state_root mismatch | Halt. Log critical warning. Stop serving RPC. |
+| block_hash mismatch | Halt. Log critical warning. Stop serving RPC. |
 | Nil raw transaction data | Block recorded as failed (status 0), no crash |
 
 A halted verifier requires manual investigation. A mismatch means either the producer is compromised or there is a determinism bug in the executor. Both warrant human review.
