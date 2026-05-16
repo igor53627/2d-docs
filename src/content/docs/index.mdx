@@ -3,7 +3,7 @@ title: 2D
 description: Documentation for the 2D chain — a Tron- and Ethereum-compatible L1 with a USD-stable base asset, instant finality, and gasless transactions.
 template: splash
 hero:
-  tagline: A Layer-1 network that supports both Ethereum and Tron protocols over a unified account state.
+  tagline: A Layer-1 network designed to unite the Ethereum and Tron ecosystems, aiming to minimize gas fees and provide fast finality.
   actions:
     - text: Read the docs
       link: architecture/addresses/
@@ -20,51 +20,51 @@ hero:
 
 import { Card, CardGrid } from '@astrojs/starlight/components';
 
-## What is 2D?
+## Why build on 2D?
 
-2D is a Layer-1 chain with a single base asset (a USD-stable) and two wallet interfaces operating over a unified account state:
+2D is a specialized Layer-1 blockchain designed to eliminate friction for both users and developers. By unifying the Ethereum and Tron ecosystems under a single state, it offers an unprecedented seamless experience.
 
-- **Ethereum JSON-RPC** (`eth_*`) on `/` for MetaMask, ethers.js, viem.
-- **Tron wallet HTTP API** (`/wallet/*`) for TronLink, TronWeb.
+- **One Account, Two Ecosystems:** A single underlying account state natively supports both **Ethereum JSON-RPC** (MetaMask, viem) and the **Tron HTTP API** (TronLink). A transfer sent from TronLink is instantly visible in MetaMask.
+- **Zero Gas Fees:** Every transaction is completely free. Instead of charging users, 2D uses an elegant sliding-window throttle to prevent spam without rejecting legitimate high-frequency senders.
+- **Instant Finality:** Blocks are designed to be final when created. No waiting for confirmations, no complex mempool management, and minimized reorganization risk.
+- **Verifiable Security:** Trust is minimized. Independent read-only verifier nodes cryptographically replay and validate blocks before serving state to wallets, rejecting state that fails verification.
 
-A transfer sent from TronLink is visible to `eth_getTransactionByHash` moments later, because both APIs read and write to the same underlying accounts table. Blocks achieve instant finality (no confirmations, no reorgs), and independent verifier nodes replay every block before serving state to wallets.
-
-## Articles
+## Explore the Architecture
 
 <CardGrid>
-	<Card title="Tron & Ethereum addresses" icon="random">
-		Why 2D treats `T…`, `0x41…`, `41…`, and `0x…` as the same account, and how both encodings stay in sync on the wire.
-
+	<Card title="Unified Addresses" icon="random">
+		Discover how 2D seamlessly treats Ethereum (`0x…`) and Tron (`T…`) addresses as the exact same account, keeping both encodings perfectly in sync on the wire.
+		
 		[Read →](architecture/addresses/)
 	</Card>
 
 	<Card title="Precompiles, no EVM" icon="puzzle">
-		Custom on-chain logic without a bytecode interpreter. Each "contract" is an Elixir module at a fixed address in the `0x2D00…` namespace.
-
+		Learn about our high-performance approach: custom on-chain logic built as Elixir modules at fixed addresses, bypassing the overhead of a bytecode interpreter.
+		
 		[Read →](architecture/precompiles/)
 	</Card>
 
-	<Card title="State roots" icon="approve-check">
-		A cryptographic fingerprint of all mutable state in every block. Any client can replay transactions and independently verify what the producer wrote.
-
+	<Card title="State Roots" icon="approve-check">
+		Dive into the cryptography. See how each block includes a fingerprint of mutable state, enabling clients to independently verify network integrity.
+		
 		[Read →](architecture/state-roots/)
 	</Card>
 
-	<Card title="Gasless transactions" icon="rocket">
-		Every transaction is free. Spam is bounded by a sliding-window throttle that only delays high-frequency senders, never rejects them.
-
+	<Card title="Gasless Transactions" icon="rocket">
+		Understand the mechanics of a truly free network. Explore how our anti-spam throttling mechanism protects the chain while keeping user transactions cost-free.
+		
 		[Read →](architecture/gasless/)
 	</Card>
 
-	<Card title="Security model" icon="warning">
-		The trust boundaries between user, producer, and verifier, and where input validation, replay prevention, and anti-spam plug in.
-
+	<Card title="Security Model" icon="warning">
+		Review the strict trust boundaries between users, block producers, and verifiers. Learn how 2D handles input validation and prevents replay attacks.
+		
 		[Read →](architecture/security/)
 	</Card>
 
-	<Card title="Running a verifier" icon="magnifier">
-		How to deploy a read-only node that replays every block, serves verified state to wallets, and refuses anything the producer got wrong.
-
+	<Card title="Run a Verifier" icon="magnifier">
+		Take part in securing the network. Step-by-step instructions on deploying a read-only node that validates every block and serves verified state to the world.
+		
 		[Read →](architecture/verifier/)
 	</Card>
 </CardGrid>
