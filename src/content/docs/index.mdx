@@ -3,7 +3,7 @@ title: 2D
 description: Documentation for the 2D chain — a Tron- and Ethereum-compatible L1 with a USD-stable base asset, instant finality, and gasless transactions.
 template: splash
 hero:
-  tagline: The first Layer-1 network to unite Ethereum and Tron ecosystems with zero gas fees and instant finality.
+  tagline: A Layer-1 network designed to unite the Ethereum and Tron ecosystems, aiming to minimize gas fees and provide fast finality.
   actions:
     - text: Read the docs
       link: architecture/addresses/
@@ -26,8 +26,8 @@ import { Card, CardGrid } from '@astrojs/starlight/components';
 
 - **One Account, Two Ecosystems:** A single underlying account state natively supports both **Ethereum JSON-RPC** (MetaMask, viem) and the **Tron HTTP API** (TronLink). A transfer sent from TronLink is instantly visible in MetaMask.
 - **Zero Gas Fees:** Every transaction is completely free. Instead of charging users, 2D uses an elegant sliding-window throttle to prevent spam without rejecting legitimate high-frequency senders.
-- **Instant Finality:** Blocks are final the moment they are created. No waiting for confirmations, no complex mempool management, and zero risk of chain reorganizations.
-- **Verifiable Security:** Trust is minimized. Independent read-only verifier nodes cryptographically replay and validate every block before serving state to wallets, refusing to serve any invalid producer state.
+- **Instant Finality:** Blocks are designed to be final when created. No waiting for confirmations, no complex mempool management, and minimized reorganization risk.
+- **Verifiable Security:** Trust is minimized. Independent read-only verifier nodes cryptographically replay and validate blocks before serving state to wallets, rejecting state that fails verification.
 
 ## Explore the Architecture
 
@@ -45,7 +45,7 @@ import { Card, CardGrid } from '@astrojs/starlight/components';
 	</Card>
 
 	<Card title="State Roots" icon="approve-check">
-		Dive into the cryptography. See how every block contains a fingerprint of all mutable state, empowering any client to independently verify the network's integrity.
+		Dive into the cryptography. See how each block includes a fingerprint of mutable state, enabling clients to independently verify network integrity.
 		
 		[Read →](architecture/state-roots/)
 	</Card>
