@@ -3,7 +3,7 @@ title: 2D
 description: Documentation for the 2D chain — a Tron- and Ethereum-compatible L1 with a USD-stable base asset, instant finality, and gasless transactions.
 template: splash
 hero:
-  tagline: A Layer-1 network designed to unite the Ethereum and Tron ecosystems, aiming to minimize gas fees and provide fast finality.
+  tagline: A Layer-1 network built for seamless stablecoin payments, uniting Ethereum and Tron ecosystems with zero gas fees and instant finality.
   actions:
     - text: Read the docs
       link: architecture/addresses/
@@ -22,11 +22,11 @@ import { Card, CardGrid } from '@astrojs/starlight/components';
 
 ## Why build on 2D?
 
-2D is a specialized Layer-1 blockchain designed to eliminate friction for both users and developers. By unifying the Ethereum and Tron ecosystems under a single state, it offers an unprecedented seamless experience.
+2D is a specialized Layer-1 blockchain built for fast, free stablecoin payments. By unifying the Ethereum and Tron ecosystems under a single state, it eliminates friction for both users and developers.
 
 - **One Account, Two Ecosystems:** A single underlying account state natively supports both **Ethereum JSON-RPC** (MetaMask, viem) and the **Tron HTTP API** (TronLink). A transfer sent from TronLink is instantly visible in MetaMask.
 - **Zero Gas Fees:** Every transaction is completely free. Instead of charging users, 2D uses an elegant sliding-window throttle to prevent spam without rejecting legitimate high-frequency senders.
-- **Instant Finality:** Blocks are designed to be final when created. No waiting for confirmations, no complex mempool management, and minimized reorganization risk.
+- **Instant Finality:** Blocks are final the moment they are created. No waiting for confirmations, no complex mempool management, and zero reorganization risk—perfect for point-of-sale payments.
 - **Verifiable Security:** Trust is minimized. Independent read-only verifier nodes cryptographically replay and validate blocks before serving state to wallets, rejecting state that fails verification.
 
 ## Explore the Architecture
