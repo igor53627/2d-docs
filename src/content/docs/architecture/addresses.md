@@ -90,9 +90,9 @@ Different families, same goal — catch mistyped addresses before you sign a tra
 | Form | Example | How 2D decodes it |
 |---|---|---|
 | Tron Base58Check | `TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t` | Strip `T…` → `Base58.decode` → `validate_check` → drop 0x41 → 20 bytes |
-| 0x-prefixed 21-byte hex | `0x41…` (42 hex chars) | Strip `0x` → decode hex → assert first byte is `0x41` → keep last 20 bytes |
-| Raw 21-byte hex | `41…` (42 hex chars) | Decode hex directly → assert `0x41` prefix → keep last 20 bytes |
-| Ethereum 20-byte hex | `0xf39Fd6…` (42 hex chars) | Strip `0x` → decode hex → keep all 20 bytes |
+| 0x-prefixed 21-byte hex | `0x41…` (42 hex chars / 44 chars total) | Strip `0x` → decode hex → assert first byte is `0x41` → keep last 20 bytes |
+| Raw 21-byte hex | `41…` (42 hex chars / 42 chars total) | Decode hex directly → assert `0x41` prefix → keep last 20 bytes |
+| Ethereum 20-byte hex | `0xf39Fd6…` (40 hex chars / 42 chars total) | Strip `0x` → decode hex → keep all 20 bytes |
 
 The dispatcher is [`Chain.Tron.Wallet.parse_address_param/2`](https://github.com/igor53627/2d/blob/4d955b70efde1075e316d9ab2c2c10820fb0cd71/lib/chain/tron/wallet.ex#L674-L695):
 
