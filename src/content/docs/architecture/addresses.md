@@ -28,7 +28,7 @@ Ethereum addresses are just **hex-encoded 20 bytes** with a case-based checksum 
 - The display form is `0x` + 40 hex characters.
 - [EIP-55](https://eips.ethereum.org/EIPS/eip-55) uses the **case** of each hex character as a per-character checksum bit: if the corresponding nibble of `keccak256(lowercase_hex)` is `≥ 8`, the character is uppercased.
 
-This constitutes the entire format: no version byte and no separate checksum bytes. Validation requires the length to be 42, the string to be case-mixed, and the case pattern to match `keccak256(lowercase)`. See [`Chain.Crypto.encode_address/1`](https://github.com/igor53627/2d/blob/4d955b70efde1075e316d9ab2c2c10820fb0cd71/lib/chain/crypto.ex#L380-L397):
+This constitutes the entire format: no version byte and no separate checksum bytes. Validation requires the length to be 42 and the case pattern to match `keccak256(lowercase)`. See [`Chain.Crypto.encode_address/1`](https://github.com/igor53627/2d/blob/4d955b70efde1075e316d9ab2c2c10820fb0cd71/lib/chain/crypto.ex#L380-L397):
 
 ```elixir
 def encode_address(<<address::binary-20>>) do
