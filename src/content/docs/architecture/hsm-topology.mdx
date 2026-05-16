@@ -220,7 +220,7 @@ A successful drain requires a chain of compromises stretching from operator host
 
 Pre-mainnet, the off-chain layer runs entirely in SEV-SNP VMs on EPYC silicon, with no physical HSM in the topology. That choice is reassessed at mainnet launch against the value at risk and the AMD PSP CVE landscape. Whatever the mainnet choice, the orchestrator-to-Vault-to-NetHSM path stays the same and the on-chain layer keeps its caps; the substrate of the HSM swaps out behind the same REST endpoint.
 
-## Where this fits in the rest of the chain
+## Where this fits into the broader architecture
 
 - The [bridge article](../bridge/) walks through the protocol, the verifier's load-bearing cross-chain bindings, and the receipt-block claimer/hash probe; this article is the deployment context that makes the bridge's safety argument hold against host-root attackers.
 - The [verifier article](../verifier/) describes the verifier's block-by-block recheck, including the cross-chain hook that reads from a helios sidecar.
