@@ -25,6 +25,7 @@ import { Card, CardGrid } from '@astrojs/starlight/components';
 2D is a specialized Layer-1 blockchain built for fast, free stablecoin payments. By unifying the Ethereum and Tron ecosystems under a single state, it eliminates friction for both users and developers.
 
 - **One Account, Two Ecosystems:** A single underlying account state natively supports both **Ethereum JSON-RPC** (MetaMask, viem) and the **Tron HTTP API** (TronLink). A transfer sent from TronLink is instantly visible in MetaMask.
+- **EVM-Compatible API, No EVM Baggage:** Connect with standard Ethereum tools out of the box. Instead of a slow, vulnerable bytecode interpreter, all on-chain logic runs as highly optimized, auditable native modules (precompiles).
 - **Zero Gas Fees:** Every transaction is completely free. Instead of charging users, 2D uses an elegant sliding-window throttle to prevent spam without rejecting legitimate high-frequency senders.
 - **Instant Finality:** Blocks are designed to be final the moment they are created. With no waiting for confirmations and no complex mempool management, the minimized reorganization risk makes it perfect for point-of-sale payments.
 - **Verifiable Security:** Trust is minimized. Independent read-only verifier nodes cryptographically replay and validate blocks before serving state to wallets, rejecting state that fails verification.
