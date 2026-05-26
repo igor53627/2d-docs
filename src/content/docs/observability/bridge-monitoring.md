@@ -10,7 +10,7 @@ This article describes what the bridge exposes, how an operator scrapes it, and 
 ## The scrape endpoint
 
 ```
-GET /admin/bridge/metrics
+GET /admin/metrics
 ```
 
 Plain-text Prometheus exposition format (`text/plain; version=0.0.4`). Mounted under the operator-internal admin URL prefix; deployments place that prefix behind a load-balancer ACL, k8s NetworkPolicy, or VPC security group. Prometheus scrapes from the same private network.
@@ -116,7 +116,7 @@ The verifier rejection counter carries a `reason` label drawn from a bounded voc
 - job_name: bridge_node
   scrape_interval: 15s
   scrape_timeout: 10s
-  metrics_path: /admin/bridge/metrics
+  metrics_path: /admin/metrics
   static_configs:
     - targets: ["bridge.internal:4000"]
 ```
