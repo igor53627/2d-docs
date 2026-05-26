@@ -1,6 +1,6 @@
 ---
 title: Bridge monitoring and auto-halt
-description: How 2D exposes bridge safety state via Prometheus, and the four observability layers that an operator scrapes to detect canary failure, verifier rejection, and watchdog liveness loss.
+description: How 2D exposes bridge safety state via Prometheus, and the five observability layers that an operator scrapes to detect canary failure, verifier rejection, and watchdog liveness loss.
 ---
 
 A bridge is the single most attractive target in any cross-chain system. The 2D bridge defends with three in-process safety layers — verifier, canary, and watchdog — and exposes their state through a single Prometheus endpoint so an operator can wire automatic halts to Alertmanager.
@@ -9,7 +9,7 @@ This article describes what the bridge exposes, how an operator scrapes it, and 
 
 ## The scrape endpoint
 
-```
+```http
 GET /admin/metrics
 ```
 
@@ -17,13 +17,13 @@ Plain-text Prometheus exposition format (`text/plain; version=0.0.4`). Mounted u
 
 The endpoint reads from in-process memory only — a single `:persistent_term.get/2` call per scrape. No database query, no GenServer.call to any other process. The scrape completes in microseconds and cannot be blocked by a hung bridge component, which is the property that allows it to safely report on a partly-broken node.
 
-## The four observability layers
+## The five observability layers
 
 ### Layer 1 — refill-mint counter
 
 Every successful bridge_lock execution increments `bridge_refill_mints_total`. This is the raw flow signal: how many bridge mints has this node processed since boot.
 
-```
+```prometheus
 bridge_refill_mints_total 12734
 ```
 
@@ -41,7 +41,7 @@ The canary is a periodic self-test runner that re-verifies a known-good bridge_l
 
 The freshness metric exposes how long since the canary last completed a successful verification:
 
-```
+```prometheus
 bridge_canary_last_success_seconds 47.3
 ```
 
@@ -53,14 +53,14 @@ The watchdog runs in a separate supervisor tree from the rest of the bridge. Its
 
 Four watchdog gauges expose this state:
 
-```
+```prometheus
 bridge_watchdog_consecutive_failures 0
 bridge_watchdog_tripped 0
 bridge_watchdog_last_canary_heartbeat_seconds 47.3
 bridge_watchdog_last_tick_seconds 12.1
 ```
 
-The two timestamp metrics are intentionally distinct. `last_watchdog_tick_at` proves the watchdog process itself is alive. `last_canary_heartbeat_at` proves the canary process is alive AND reaching the verifier path. Conflating them into one timestamp would let a fresh watchdog tick mask a dead canary — an operator looking at one timestamp would see "the bridge is monitored" without noticing the verification path was offline. Two distinct fields force the operator dashboard to render both signals.
+The two timestamp metrics are intentionally distinct. `bridge_watchdog_last_tick_seconds` proves the watchdog process itself is alive. `bridge_watchdog_last_canary_heartbeat_seconds` proves the canary process is alive AND reaching the verifier path. Conflating them into one timestamp would let a fresh watchdog tick mask a dead canary — an operator looking at one timestamp would see "the bridge is monitored" without noticing the verification path was offline. Two distinct fields force the operator dashboard to render both signals.
 
 Same finite-sentinel pattern applies: a never-ticked watchdog or a never-published canary reads a ≈31-year stale value, never missing-data.
 
@@ -68,7 +68,7 @@ Same finite-sentinel pattern applies: a never-ticked watchdog or a never-publish
 
 The `bridge_circuit_state{tier}` gauge exposes the current halt state as a one-hot series — exactly one of `tier="none"`, `"yellow"`, `"red"`, `"black"` carries the value `1`, the others carry `0`:
 
-```
+```prometheus
 bridge_circuit_state{tier="none"} 0
 bridge_circuit_state{tier="yellow"} 1
 bridge_circuit_state{tier="red"} 0
