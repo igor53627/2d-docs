@@ -55,7 +55,7 @@ For every block (including genesis), the verifier independently verifies:
 | **block_hash** | Any field in the block header was tampered with after construction. |
 | **parent_hash** | Block doesn't chain correctly from the previous one. Fork detection. |
 | **block_number** | Gaps in the sequence (skipped blocks). |
-| **timestamp** | A block stamped earlier than its parent. Timestamps are monotonic; the producer clamps forward across a backward clock step, so a regressing timestamp means a divergent or compromised upstream. |
+| **block timestamp** | A block stamped earlier than its parent. Timestamps are monotonic; the producer clamps forward across a backward clock step, so a regressing timestamp means a divergent or compromised upstream. |
 | **chain_id** | Cross-chain replay (transaction signed for a different network). |
 | **sender recovery** | For Ethereum transactions, the sender is re-derived from the signature. For Tron transactions, the signature is re-verified against the claimed sender. |
 | **genesis invariants** | Genesis timestamp and transactions root match the canonical constants. Prevents adversarial genesis forgery. |
