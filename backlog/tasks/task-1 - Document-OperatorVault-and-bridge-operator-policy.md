@@ -74,3 +74,8 @@ emit `claimer = vault`.
   2d-solidity `eb63ea4b6237dde539e9dd656734b8fb64a88b2d` and 2d
   `f7f9472d76d2dad1bfc22c5d52ce02b0a9b189f2`.
 - Verification: `npm run build` passed on 2026-05-09.
+
+**Follow-up stale docs cleanup (2026-05-31):**
+- Reviewed and added explicit post-TASK-8 notes in the main 2d repo's core internal design documents (`doc-1` and `doc-3`) and the manual ETH claim mix task to prevent future misinterpretation that the operator signing key is still required to finalize claims.
+- Public 2d-docs architecture articles were already correctly describing the permissionless nature (no changes needed).
+- See https://github.com/igor53627/2d/pull/127 for the companion changes in the main 2d repository.
