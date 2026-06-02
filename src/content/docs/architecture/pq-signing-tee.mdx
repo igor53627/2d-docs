@@ -3,7 +3,7 @@ title: PQ signing in the TEE (2d-hsm)
 description: How the 2D block producer holds its ML-DSA-65 key inside a minimal signing enclave, speaks to the untrusted host over vsock, and uses Producer Chain Attestation as a network second factor before arming.
 ---
 
-The [bridge operator HSM topology](./hsm-topology/) explains where **bridge** operator keys live: orchestrator, Vault + OPA, and NetHSM namespaces on three hosts. The **block producer** uses a separate long-term post-quantum key for block headers and for on-chain `AuthorizationTicket`s (producer recovery and hard-fork activation). That producer path is what the [**2d-hsm**](https://github.com/igor53627/2d-hsm) reference enclave implements: a small PQ signing service inside AMD SEV-SNP (or Nitro Enclaves), with a length-prefixed CBOR protocol over vsock to the untrusted 2D host.
+The [bridge operator HSM topology](../hsm-topology/) explains where **bridge** operator keys live: orchestrator, Vault + OPA, and NetHSM namespaces on three hosts. The **block producer** uses a separate long-term post-quantum key for block headers and for on-chain `AuthorizationTicket`s (producer recovery and hard-fork activation). That producer path is what the [**2d-hsm**](https://github.com/igor53627/2d-hsm) reference enclave implements: a small PQ signing service inside AMD SEV-SNP (or Nitro Enclaves), with a length-prefixed CBOR protocol over vsock to the untrusted 2D host.
 
 This page is the architecture overview for that service. The normative wire format and security invariants live in the repository spec [`vsock-api-wire-format-spec-draft.md`](https://github.com/igor53627/2d-hsm/blob/main/backlog/docs/vsock-api-wire-format-spec-draft.md).
 
@@ -100,10 +100,10 @@ Still deferred: production seal format, live chain-tip refresh between arm and s
 
 ## Relation to the bridge HSM topology
 
-In [bridge operator HSM topology](./hsm-topology/), the **producer key** is shown reaching NetHSM’s `producer` namespace directly from the block-producer host, bypassing bridge Vault/OPA. **2d-hsm** is the dedicated minimal enclave design for that producer role on the 2D chain: PQ tickets and block signing inside one auditable service, with vsock as the only host interface. Pre-mainnet rehearsal may still colocate VMs on one EPYC chassis; the logical boundary (host untrusted, enclave holds the PQ secret) is the same whether the image runs as SEV-SNP software-NetHSM or a future physical HSM behind the same API.
+In [bridge operator HSM topology](../hsm-topology/), the **producer key** is shown reaching NetHSM’s `producer` namespace directly from the block-producer host, bypassing bridge Vault/OPA. **2d-hsm** is the dedicated minimal enclave design for that producer role on the 2D chain: PQ tickets and block signing inside one auditable service, with vsock as the only host interface. Pre-mainnet rehearsal may still colocate VMs on one EPYC chassis; the logical boundary (host untrusted, enclave holds the PQ secret) is the same whether the image runs as SEV-SNP software-NetHSM or a future physical HSM behind the same API.
 
 ## Further reading
 
-- [Bridge operator HSM topology](./hsm-topology/) — three-host bridge signing and SEV-SNP posture
-- [Security model](./security/) — chain-wide assumptions
+- [Bridge operator HSM topology](../hsm-topology/) — three-host bridge signing and SEV-SNP posture
+- [Security model](../security/) — chain-wide assumptions
 - [2d-hsm repository](https://github.com/igor53627/2d-hsm) — specs, `AGENTS.md` review gates, and `impl/README.md` build matrix

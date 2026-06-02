@@ -3,7 +3,7 @@ title: PQ-подпись в TEE (2d-hsm)
 description: Как производитель блоков 2D хранит ключ ML-DSA-65 в минимальном signing-enclave, общается с недоверенным хостом по vsock и использует Producer Chain Attestation как сетевой второй фактор перед arming.
 ---
 
-В [HSM-топологии оператора моста](./hsm-topology/) описано размещение **мостовых** ключей: оркестратор, Vault + OPA и пространства имён NetHSM на трёх хостах. У **производителя блоков** отдельный долгоживущий постквантовый ключ для заголовков блоков и для on-chain `AuthorizationTicket` (recovery производителя и активация hard fork). Этот путь реализует референсный enclave [**2d-hsm**](https://github.com/igor53627/2d-hsm): компактный PQ signing service внутри AMD SEV-SNP (или Nitro Enclaves) с CBOR-протоколом поверх vsock к недоверенному хосту 2D.
+В [HSM-топологии оператора моста](../hsm-topology/) описано размещение **мостовых** ключей: оркестратор, Vault + OPA и пространства имён NetHSM на трёх хостах. У **производителя блоков** отдельный долгоживущий постквантовый ключ для заголовков блоков и для on-chain `AuthorizationTicket` (recovery производителя и активация hard fork). Этот путь реализует референсный enclave [**2d-hsm**](https://github.com/igor53627/2d-hsm): компактный PQ signing service внутри AMD SEV-SNP (или Nitro Enclaves) с CBOR-протоколом поверх vsock к недоверенному хосту 2D.
 
 Здесь — обзор архитектуры сервиса. Нормативный wire format и инварианты безопасности — в [`vsock-api-wire-format-spec-draft.md`](https://github.com/igor53627/2d-hsm/blob/main/backlog/docs/vsock-api-wire-format-spec-draft.md) в репозитории.
 
@@ -70,6 +70,21 @@ flowchart LR
 
 ## Arming и hard fork
 
+```mermaid
+sequenceDiagram
+  participant Host as Недоверенный хост
+  participant Enc as enclave 2d-hsm
+  Host->>Enc: GET_MEASUREMENT
+  Enc-->>Host: measurement, attestation, pq_pubkey, pq_signing_ready
+  Host->>Enc: ARM_FOR_PRODUCTION + RecentChainProof
+  Enc->>Enc: Проверка Ed25519 proof и pinned trust
+  Enc->>Enc: Проверка height / measurement / pubkey
+  Enc-->>Host: armed
+  Host->>Enc: SIGN_AUTHORIZATION_TICKET (type 1)
+  Enc->>Enc: Требуется armed + pq_pubkey + fork fields
+  Enc-->>Host: подпись ML-DSA-65 + ticketHash
+```
+
 Hard-fork тикеты — через `handle_sign_authorization_ticket_with_state` после валидного arm. Recovery (type 0) может идти stateless path при bootstrap, но `pq_pubkey` в тикете должен совпадать с ключом enclave, если signer установлен.
 
 ## Статус реализации
@@ -80,10 +95,10 @@ Hard-fork тикеты — через `handle_sign_authorization_ticket_with_sta
 
 ## Связь с топологией моста
 
-В [топологии моста](./hsm-topology/) ключ производителя идёт в namespace `producer` NetHSM с BP-хоста, минуя Vault/OPA моста. **2d-hsm** — целевая минимальная enclave-модель этой роли на цепи 2D: PQ-тикеты и подпись блоков в одном аудируемом сервисе, vsock — единственный интерфейс к хосту.
+В [топологии моста](../hsm-topology/) ключ производителя идёт в namespace `producer` NetHSM с BP-хоста, минуя Vault/OPA моста. **2d-hsm** — целевая минимальная enclave-модель этой роли на цепи 2D: PQ-тикеты и подпись блоков в одном аудируемом сервисе, vsock — единственный интерфейс к хосту. На этапе pre-mainnet репетиций несколько VM могут по-прежнему работать на одном шасси EPYC; логическая граница (хост недоверен, enclave хранит PQ-секрет) одна и та же — неважно, запускается образ как software-NetHSM в SEV-SNP или как будущий физический HSM за той же API.
 
 ## Дальше
 
-- [HSM-топология оператора моста](./hsm-topology/)
-- [Модель безопасности](./security/)
+- [HSM-топология оператора моста](../hsm-topology/)
+- [Модель безопасности](../security/)
 - [Репозиторий 2d-hsm](https://github.com/igor53627/2d-hsm)
