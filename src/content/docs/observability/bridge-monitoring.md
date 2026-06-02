@@ -83,6 +83,10 @@ Two gauges aggregate bridge throughput over the last 24 hours: `bridge_inflow_24
 
 These gauges support volume-anomaly alerts. The default is an absolute threshold tuned per-deployment; operators with sufficient historical baseline data can substitute a σ-based recording rule.
 
+### Layer 6 — IntentWatcher (bridge-in automation)
+
+When automated bridge-in claims are enabled, additional gauges and counters expose whether the Ethereum event cursor is advancing, whether plan validation is failing (possible front-run), and whether automated ETH claims are failing. Series names follow the `bridge_intent_watcher_*` and `bridge_intent_eth_claim_*` prefixes. Thresholds, alert names, and investigation steps are deployment-specific and live in the operator-internal runbook that ships with the bridge binary (not duplicated here to avoid stale public copies).
+
 ## Self-observation
 
 Two additional metrics surface the health of the collector itself:

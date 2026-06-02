@@ -83,6 +83,10 @@ bridge_circuit_state{tier="black"} 0
 
 Эти gauge'а поддерживают volume-anomaly алерты. По дефолту — absolute threshold, тюнящийся per-deployment; операторы с достаточным историческим baseline могут заменить на σ-based recording rule.
 
+### Слой 6 — IntentWatcher (автоматизация bridge-in)
+
+При включённых автоматических ETH claim'ах дополнительные gauge'и и counter'ы показывают, движется ли курсор Ethereum-событий, есть ли plan mismatch (возможный front-run) и падают ли автоматические claim'ы. Имена серий: префиксы `bridge_intent_watcher_*` и `bridge_intent_eth_claim_*`. Пороги, имена алертов и чеклисты расследования — per-deployment; они в operator-internal runbook, поставляемом с бинарником моста (здесь не дублируются, чтобы публичная копия не устаревала).
+
 ## Self-observation
 
 Две дополнительные метрики отдают здоровье самого коллектора:
