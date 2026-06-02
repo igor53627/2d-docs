@@ -94,6 +94,13 @@ export default defineConfig({
 							slug: 'architecture/hsm-topology',
 						},
 						{
+							label: 'PQ signing in the TEE (2d-hsm)',
+							translations: {
+								ru: 'PQ-подпись в TEE (2d-hsm)',
+							},
+							slug: 'architecture/pq-signing-tee',
+						},
+						{
 							label: 'Running a verifier',
 							translations: {
 								ru: 'Запуск верификатора',
