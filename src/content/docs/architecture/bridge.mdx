@@ -40,12 +40,13 @@ The mechanism lives on the `BridgeRefillMint` precompile at `0x2D00…0003`. It 
 
 ```solidity
 bridge_lock(uint64 eth_chain_id, bytes32 eth_tx_hash, uint32 eth_log_index,
-            uint256 amount, bytes32 htlc_hash, address receiver, uint256 deadline_ms)
+            uint256 amount, bytes32 htlc_hash, address receiver, uint256 deadline_ms,
+            uint64 eth_observation_block)
 ```
 
 `bridge_lock` atomically mints supply **and** creates an HTLC lock on the 2D side in a single call, binding the Ethereum event to a specific 2D recipient. There is no standalone refill path: every minted unit is immediately locked to a specific receiver via HTLC, eliminating operator float entirely.
 
-Calldata is the source triple identifying a single `Locked` event on Ethereum, plus the amount, HTLC hash, receiver, and deadline. The precompile does three things, in order:
+Calldata is the source triple identifying a single `Locked` event on Ethereum, plus the amount, HTLC hash, receiver, deadline, and `eth_observation_block` (the Ethereum `"finalized"` block number at signing time, stored on the `bridge_mints` row for replay-safe `claimerUsedHash` checks). The precompile does three things, in order:
 
 1. Reject the call unless the caller equals the configured `bridge_operator_address`. The operator account is restricted to precompile calls only; plain transfers from the operator address are blocked by the block executor.
 2. Insert an HTLC swap row (receiver-bound lock) and a `bridge_mints` row (supply backing) keyed on `eth_event_id = keccak256(eth_chain_id ‖ eth_tx_hash ‖ eth_log_index)`. The primary key on `eth_event_id` guarantees a duplicate triple cannot mint twice. The `htlc_hash` is stored alongside the event id, linking the mint to a specific HTLC swap.
@@ -160,7 +161,7 @@ The bridge operator is a single party operationally but uses two cryptographical
 | Helios sidecar compromise | If helios is deployed: equivalent to ≥ 2/3 of the beacon sync committee being malicious. If helios is **not** deployed and `ETHEREUM_RPC_URL` points at a third-party endpoint, cross-chain security degrades to trusting that endpoint's operator. Helios is an operational best practice, not a protocol-enforced invariant. |
 | Duplicate event submitted twice | Rejected at the chain side. `bridge_mints` PK on `eth_event_id` is committed in the [state root](../state-roots/), so a producer that bypassed the PK check would still be caught by the verifier's state-root recomputation. |
 
-The bridge eliminates the `unlock()` authority that has drained wrapped bridges. Every mint is atomically bound to a receiver-specific HTLC via `bridge_lock`, so the operator never holds unbound balance. The verifier independently confirms the HTLC hash, receiver, claimer allowlist, refund status, and the receipt-block claimer/hash storage slot before accepting any block containing a mint. Funds locked in HTLC swaps are safe: only `claim(preimage)` or `refund(hash)` can move them, and a successful claim always pays the configured claimer.
+The bridge eliminates the `unlock()` authority that has drained wrapped bridges. Every mint is atomically bound to a receiver-specific HTLC via `bridge_lock`, so the operator never holds unbound balance. The verifier independently confirms the HTLC hash, receiver, claimer allowlist, refund status, and `claimerUsedHash(claimer, htlc_hash)` at the `eth_observation_block` frozen in `bridge_mints` (embedded in `bridge_lock` calldata at signing time) before accepting any block containing a mint. Funds locked in HTLC swaps are safe: only `claim(preimage)` or `refund(hash)` can move them, and a successful claim always pays the configured claimer.
 
 ## Bridge operator policy
 
