@@ -1,6 +1,6 @@
 ---
 title: Bridge monitoring and auto-halt
-description: How 2D exposes bridge safety state via Prometheus, and the five observability layers that an operator scrapes to detect canary failure, verifier rejection, and watchdog liveness loss.
+description: How 2D exposes bridge safety state via Prometheus, and the six observability layers that an operator scrapes to detect canary failure, verifier rejection, watchdog liveness loss, and bridge-in automation stalls.
 ---
 
 A bridge is the single most attractive target in any cross-chain system. The 2D bridge defends with three in-process safety layers — verifier, canary, and watchdog — and exposes their state through a single Prometheus endpoint so an operator can wire automatic halts to Alertmanager.
@@ -17,13 +17,13 @@ Plain-text Prometheus exposition format (`text/plain; version=0.0.4`). Mounted u
 
 The endpoint reads from in-process memory only — a single `:persistent_term.get/2` call per scrape. No database query, no GenServer.call to any other process. The scrape completes in microseconds and cannot be blocked by a hung bridge component, which is the property that allows it to safely report on a partly-broken node.
 
-## The five observability layers
+## The six observability layers
 
 ### Layer 1 — refill-mint counter
 
 Every successful bridge_lock execution increments `bridge_refill_mints_total`. This is the raw flow signal: how many bridge mints has this node processed since boot.
 
-```prometheus
+```text
 bridge_refill_mints_total 12734
 ```
 
@@ -41,7 +41,7 @@ The canary is a periodic self-test runner that re-verifies a known-good bridge_l
 
 The freshness metric exposes how long since the canary last completed a successful verification:
 
-```prometheus
+```text
 bridge_canary_last_success_seconds 47.3
 ```
 
@@ -53,7 +53,7 @@ The watchdog runs in a separate supervisor tree from the rest of the bridge. Its
 
 Four watchdog gauges expose this state:
 
-```prometheus
+```text
 bridge_watchdog_consecutive_failures 0
 bridge_watchdog_tripped 0
 bridge_watchdog_last_canary_heartbeat_seconds 47.3
@@ -68,7 +68,7 @@ Same finite-sentinel pattern applies: a never-ticked watchdog or a never-publish
 
 The `bridge_circuit_state{tier}` gauge exposes the current halt state as a one-hot series — exactly one of `tier="none"`, `"yellow"`, `"red"`, `"black"` carries the value `1`, the others carry `0`:
 
-```prometheus
+```text
 bridge_circuit_state{tier="none"} 0
 bridge_circuit_state{tier="yellow"} 1
 bridge_circuit_state{tier="red"} 0
@@ -77,15 +77,15 @@ bridge_circuit_state{tier="black"} 0
 
 This shape makes the Alertmanager rule `bridge_circuit_state{tier!="none"} == 1` an unambiguous "the bridge is non-green" predicate.
 
+### Layer 6 — IntentWatcher (bridge-in automation)
+
+When automated bridge-in claims are enabled, additional gauges and counters expose whether the Ethereum event cursor is advancing, whether plan validation is failing (possible front-run), and whether automated ETH claims are failing. Series names follow the `bridge_intent_watcher_*` and `bridge_intent_eth_claim_*` prefixes. Thresholds, alert names, and investigation steps are deployment-specific and live in the operator-internal runbook that ships with the bridge binary (not duplicated here to avoid stale public copies).
+
 ### Bonus — 24-hour volume
 
 Two gauges aggregate bridge throughput over the last 24 hours: `bridge_inflow_24h_usdc` (sum of bridge mint amounts) and `bridge_outflow_24h_usdc` (sum of successfully-claimed bridge HTLC swaps). The aggregation runs every 30 seconds against the on-chain state tables; it is observational, not consensus-critical.
 
 These gauges support volume-anomaly alerts. The default is an absolute threshold tuned per-deployment; operators with sufficient historical baseline data can substitute a σ-based recording rule.
-
-### Layer 6 — IntentWatcher (bridge-in automation)
-
-When automated bridge-in claims are enabled, additional gauges and counters expose whether the Ethereum event cursor is advancing, whether plan validation is failing (possible front-run), and whether automated ETH claims are failing. Series names follow the `bridge_intent_watcher_*` and `bridge_intent_eth_claim_*` prefixes. Thresholds, alert names, and investigation steps are deployment-specific and live in the operator-internal runbook that ships with the bridge binary (not duplicated here to avoid stale public copies).
 
 ## Self-observation
 

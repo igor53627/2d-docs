@@ -109,7 +109,22 @@ export default defineConfig({
 						},
 					],
 				},
-			],
-		}),
-	],
-});
+					{
+						label: 'Observability',
+						translations: {
+							ru: 'Наблюдаемость',
+						},
+						items: [
+							{
+								label: 'Bridge monitoring and auto-halt',
+								translations: {
+									ru: 'Мониторинг моста и auto-halt',
+								},
+								slug: 'observability/bridge-monitoring',
+							},
+						],
+					},
+				],
+			}),
+		],
+	});

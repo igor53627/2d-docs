@@ -1,7 +1,7 @@
 ---
 id: TASK-2
 title: Public docs article — bridge operator HSM topology and confidential computing posture
-status: In Progress
+status: Done
 assignee:
   - "@igor"
 created_date: '2026-05-09 07:24'
@@ -64,11 +64,11 @@ its public reflection.
       time): logical three-host topology (`flowchart` with distinct
       compromise-prone vs SEV-SNP styling), signing path (`sequenceDiagram`
       with host-grouped boxes orchestrator → OPA → Vault → NetHSM), and a
-      cloud-style deployment diagram (`architecture-beta` with Iconify
-      logos for Elixir, Vault, PostgreSQL, Ethereum). No hand-drawn SVG —
-      `architecture-beta` replaces what would have been a separate hero
-      image and avoids the visual overlap and style mismatch a custom SVG
-      produces.
+      cloud-style deployment diagram (`architecture-beta` with Mermaid
+      built-in icons for Elixir, Vault, PostgreSQL, Ethereum). No hand-drawn
+      SVG — `architecture-beta` replaces what would have been a separate
+      hero image and avoids the visual overlap and style mismatch a custom
+      SVG produces.
 - [x] "Forever software-in-TEE pre-mainnet" policy stated explicitly in a
       dedicated subsection — including rationale (no real value at risk on
       pre-mainnet keys, identical orchestrator path between
@@ -98,7 +98,7 @@ its public reflection.
   docs site).
 - Mermaid diagram styling polish in commit `46c9702` — flowchart
   background/border for compromise-prone vs SEV-SNP, sequence diagram
-  participant grouping via `box`, and Iconify-backed tech logos
+  participant grouping via `box`, and Mermaid built-in tech icons
   (Elixir / Vault / PostgreSQL / Ethereum) for the architecture-beta
   diagram.
 - Build wiring: `rehype-mermaid` (SSR strategy `inline-svg` via headless
@@ -115,4 +115,5 @@ its public reflection.
 
 ## Final Summary
 
-(pending — fill in after PR review and merge.)
+Public HSM topology documentation shipped in EN/RU with Starlight navigation,
+build-time Mermaid rendering, and completed verification notes.
