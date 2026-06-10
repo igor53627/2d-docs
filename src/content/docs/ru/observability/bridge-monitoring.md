@@ -100,7 +100,7 @@ bridge_circuit_state{tier="black"} 0
 
 Alertmanager-правила срабатывают на пересечении threshold каждой метрикой и POST'ят в halt-endpoint моста с HMAC-подписью оператора. Прекомпайл моста проверяет HMAC, пишет новый tier circuit-state и либо блокирует новые bridge_lock'и (tier yellow), либо отвергает все взаимодействия с мостом (tier red и black).
 
-Каждый halt пишет audit-log row, идентифицирующий source: webhook-driven halt несёт `set_by="alertmanager"` и `reason="alert:<RuleName>"`, отдельно от halt'а, инициированного вручную. Audit-log консультируется в процессе un-halt'а; множественные halt-source'ы примиряются до снятия tier.
+Каждый halt пишет audit-log row, идентифицирующий source через поле `reason`: webhook-driven halt несёт `reason="alert:<RuleName>"`, отдельно от halt'а, инициированного вручную. Audit-log консультируется в процессе un-halt'а; множественные halt-source'ы примиряются до снятия tier.
 
 ## Trust-модель
 
