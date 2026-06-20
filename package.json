@@ -15,7 +15,7 @@
     "sharp": "^0.34.2"
   },
   "devDependencies": {
-    "playwright": "^1.59.1",
+    "playwright": "1.60.0",
     "rehype-mermaid": "^3.0.0"
   }
 }
