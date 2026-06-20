@@ -100,7 +100,7 @@ Without these signals, a hung poller would silently serve frozen `last_value` sa
 
 Alertmanager rules fire on each metric crossing its threshold and POST to the bridge's halt endpoint with an operator-supplied HMAC signature. The bridge precompile verifies the HMAC, writes the new circuit-state tier, and either blocks new bridge_locks (yellow tier) or rejects all bridge interactions (red and black tiers).
 
-Each halt fires an audit log row identifying the source: a webhook-driven halt carries `set_by="alertmanager"` and `reason="alert:<RuleName>"`, distinct from a manually-initiated halt. The audit log is consulted during the un-halt process; multiple halt sources are reconciled before lifting the tier.
+Each halt fires an audit log row identifying the source through its `reason` field: a webhook-driven halt carries `reason="alert:<RuleName>"`, distinct from a manually-initiated halt. The audit log is consulted during the un-halt process; multiple halt sources are reconciled before lifting the tier.
 
 ## Trust model
 
