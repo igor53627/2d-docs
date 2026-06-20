@@ -3,7 +3,7 @@ title: 2D
 description: Documentation for the 2D chain — a Tron- and Ethereum-compatible L1 with a USD-stable base asset, instant finality, and gasless transactions.
 template: splash
 hero:
-  tagline: A Layer-1 network built for seamless stablecoin payments, uniting Ethereum and Tron ecosystems with zero gas fees and instant finality.
+  tagline: A Layer-1 network built for stablecoin payments, uniting Ethereum and Tron under one account state with zero gas fees and instant finality.
   actions:
     - text: Read the docs
       link: architecture/addresses/
@@ -22,50 +22,62 @@ import { Card, CardGrid } from '@astrojs/starlight/components';
 
 ## Why build on 2D?
 
-2D is a specialized Layer-1 blockchain built for fast, free stablecoin payments. By unifying the Ethereum and Tron ecosystems under a single state, it eliminates friction for both users and developers.
+2D is a Layer-1 blockchain built for fast, free stablecoin payments. It unifies the Ethereum and Tron ecosystems under a single account state, which removes friction for both users and developers.
 
-- **One Account, Two Ecosystems:** A single underlying account state natively supports both **Ethereum JSON-RPC** (MetaMask, viem) and the **Tron HTTP API** (TronLink). A transfer sent from TronLink is instantly visible in MetaMask.
-- **EVM-Compatible API, No EVM Baggage:** Connect with standard Ethereum tools out of the box. Instead of a slow, vulnerable bytecode interpreter, all on-chain logic runs as highly optimized, auditable native modules (precompiles).
-- **Zero Gas Fees:** Every transaction is completely free. Instead of charging users, 2D uses an elegant sliding-window throttle to prevent spam without rejecting legitimate high-frequency senders.
-- **Instant Finality:** Blocks are designed to be final the moment they are created. With no waiting for confirmations and no complex mempool management, 2D is well suited for point-of-sale payments.
-- **Verifiable Security:** Trust is minimized. Independent read-only verifier nodes cryptographically replay and validate blocks before serving state to wallets, rejecting state that fails verification.
+- **One account, two ecosystems.** The same account state works with both Ethereum JSON-RPC (MetaMask, viem) and the Tron HTTP API (TronLink). A transfer sent from TronLink shows up in MetaMask right away.
+- **EVM-compatible API, no EVM.** Standard Ethereum tools work out of the box. Instead of a bytecode interpreter, every piece of on-chain logic is a small, auditable native module (a precompile).
+- **Zero gas fees.** Every transaction is free. A sliding-window throttle slows spam down instead of charging gas, so legitimate senders get delayed rather than priced out.
+- **Instant finality.** A block is final the moment it is produced. No confirmations to wait for and no mempool to manage, which suits point-of-sale payments.
+- **Verifiable security.** Independent read-only verifiers replay and validate every block before serving state to wallets, and reject anything that fails the check.
 
-## Explore the Architecture
+## Explore the architecture
 
 <CardGrid>
-	<Card title="Unified Addresses" icon="random">
-		Discover how 2D seamlessly treats Ethereum (`0x…`) and Tron (`T…`) addresses as the exact same account, keeping both encodings perfectly in sync on the wire.
-		
+	<Card title="Unified addresses" icon="random">
+		How 2D treats Ethereum (`0x…`) and Tron (`T…`) addresses as the exact same account, with both encodings kept in sync on the wire.
+
 		[Read →](architecture/addresses/)
 	</Card>
 
 	<Card title="Precompiles, no EVM" icon="puzzle">
-		Learn about our high-performance approach: custom on-chain logic built as Elixir modules at fixed addresses, bypassing the overhead of a bytecode interpreter.
-		
+		On-chain logic as Elixir modules at fixed addresses, without the overhead and attack surface of a bytecode interpreter.
+
 		[Read →](architecture/precompiles/)
 	</Card>
 
-	<Card title="State Roots" icon="approve-check">
-		Dive into the cryptography. See how each block includes a fingerprint of mutable state, enabling clients to independently verify network integrity.
-		
+	<Card title="Bridge (HTLC)" icon="approve-check-circle">
+	How 2D moves USD-stable across chains with no wrapped-bridge custody pool and no unlock authority: preimage-locked HTLC settlement, re-checked against finalized Ethereum state by every verifier.
+
+		[Read →](architecture/bridge/)
+	</Card>
+
+	<Card title="State roots" icon="approve-check">
+		The cryptography behind the chain. Each block carries a fingerprint of mutable state, so clients can verify network integrity on their own.
+
 		[Read →](architecture/state-roots/)
 	</Card>
 
-	<Card title="Gasless Transactions" icon="rocket">
-		Understand the mechanics of a truly free network. Explore how our anti-spam throttling mechanism protects the chain while keeping user transactions cost-free.
-		
+	<Card title="Gasless transactions" icon="rocket">
+		The mechanics of a free network: how the sliding-window throttle stops spam while keeping user transactions cost-free.
+
 		[Read →](architecture/gasless/)
 	</Card>
 
-	<Card title="Security Model" icon="warning">
-		Review the strict trust boundaries between users, block producers, and verifiers. Learn how 2D handles input validation and prevents replay attacks.
-		
+	<Card title="Security model" icon="warning">
+		The trust boundaries between users, block producers, and verifiers. How 2D validates input and prevents replay attacks.
+
 		[Read →](architecture/security/)
 	</Card>
 
-	<Card title="Run a Verifier" icon="magnifier">
-		Take part in securing the network. Step-by-step instructions on deploying a read-only node that validates every block and serves verified state to the world.
-		
+	<Card title="Agent Gateway" icon="setting">
+	Authenticated, rate-limited read access for autonomous agents, with no signing key handed to the agent. Per-agent wallets are bound to keys held inside a TEE signer; write endpoints arrive later.
+
+		[Read →](architecture/agent-gateway/)
+	</Card>
+
+	<Card title="Run a verifier" icon="magnifier">
+		Step-by-step setup of a read-only node that validates every block and serves verified state to the world.
+
 		[Read →](architecture/verifier/)
 	</Card>
 </CardGrid>
