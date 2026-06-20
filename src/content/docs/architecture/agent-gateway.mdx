@@ -1,139 +1,139 @@
 ---
 title: "Agent Gateway: keyless programmatic access to 2D"
-description: How 2D gives autonomous agents authenticated, rate-limited access to the chain without ever handing them a signing key. Per-agent assigned wallets bound to keys that live inside a TEE signer, a proof-of-possession check the agent cannot forge, and a read-only surface shipped today.
+description: How 2D gives autonomous agents keyless, rate-limited access to the chain. Each agent gets an assigned wallet whose key lives in a TEE signer, a proof-of-possession check it cannot forge, and a read-only API surface that ships today (write endpoints are reserved for later).
 ---
 
-An autonomous agent — a payment bot, a treasury automator, an LLM that moves funds on a user's behalf — needs two things from a chain: a way to read state, and a key to sign transactions. The read part is easy. The key part is the entire problem.
+An autonomous agent that moves funds on someone's behalf (a payment bot, a treasury automator, an LLM) needs two things from a chain: a way to read state, and a key to sign transactions. Reading is the easy half. The key is where the risk lives.
 
-A signing key held inside an agent process is the softest target in any crypto system. Agents are fed untrusted input by design: prompts, web pages, quotes from counterparties. A prompt-injection or a phished configuration is enough for the key to sign whatever an attacker wants, and because the key is *inside* the agent, on-chain policy is the only thing left standing between the attacker and the funds. The history of agent-style automation in crypto is, predictably, a history of drained hot wallets.
+A signing key kept inside an agent process is one of the softest targets in a crypto system. Agents consume untrusted input on purpose: prompts, web pages, quotes from other parties. A prompt injection or a phished config is enough to make the key sign whatever an attacker wants. And because the key sits inside the agent, on-chain policy is the only layer left between the attacker and the funds. The track record of agent-style automation in crypto is, mostly, a list of drained hot wallets.
 
-2D's Agent Gateway removes the key from the agent entirely. An agent never holds a private key. It holds a **bearer capability token** that authorizes a fixed set of operations against a single **assigned wallet**, and the wallet's signing key lives in a separate **2d-hsm** enclave inside a confidential VM. The gateway speaks to the enclave over a Unix-domain socket; the agent speaks to the gateway over authenticated HTTP. Today that surface is read-only; when write endpoints ship, agent-initiated writes will be re-checked and signed inside the enclave under operator policy, never by the agent.
+2D's Agent Gateway keeps the key out of the agent. An agent never holds a private key. It holds a **bearer token** that authorizes a fixed set of operations on one **assigned wallet**, while the wallet's signing key lives in a separate **2d-hsm** enclave running inside a confidential VM. The gateway talks to the enclave over a Unix-domain socket; the agent talks to the gateway over authenticated HTTP. The surface shipped today is read-only. When write endpoints are added, agent-initiated writes will be checked and signed inside the enclave under operator policy, never by the agent itself.
 
-This article covers what the gateway exposes today, the authorization model around it, how an assigned wallet is bound to a TEE-held key, the proof-of-possession check that re-establishes the assigned wallet's key is still held by the enclave, and — explicitly — what is not shipped yet.
+This article covers what the gateway exposes today, the authorization model, how an assigned wallet is bound to a key held in a TEE, the proof-of-possession check that confirms the key is still held by the enclave, and, openly, what is not shipped yet.
 
 ## What ships today: a read-only surface
 
-The gateway is mounted at `/agent/v1` behind a single pipeline that enforces, in order: JSON only, a pre-authentication IP rate limit, bearer-token authentication with a capability check, and a per-agent post-authentication rate limit. The endpoints reachable today are all read-only:
+The gateway is mounted at `/agent/v1` behind a single pipeline that applies, in order: JSON-only input, a pre-authentication per-IP rate limit, bearer-token authentication with a capability check, and a per-agent post-authentication rate limit. The endpoints reachable today are all read-only:
 
 | Endpoint | Purpose |
 |---|---|
-| `GET /agent/v1/network` | Discovery. Returns the API version, chain metadata, the agent's own identity and capabilities, the RPC method allowlist, and the rate limits in effect. Always call this first. |
+| `GET /agent/v1/network` | Discovery. Returns the API version, chain metadata, the agent's own identity and capabilities, the RPC method allowlist, and the rate limits in effect. Call this first. |
 | `GET /agent/v1/balance` | The assigned wallet's balance, in token base units (USDC, 6 decimals) plus an 18-decimal form for `eth_getBalance` parity. This is the authoritative balance for the agent's own wallet. |
 | `POST /agent/v1/rpc` | A read-only JSON-RPC proxy. Accepts a single request or a batch. Methods are restricted to a fixed allowlist. |
 
-The RPC proxy is not a pass-through. Its method allowlist is closed and enumerated in the [`RpcProxy`](https://github.com/igor53627/2d/blob/f646a0be630bd7feaf98263f44a73c3fd04d05c6/lib/chain/agent_gateway/rpc_proxy.ex) module:
+The RPC proxy is not a pass-through. It enforces a closed method allowlist, enumerated in the [`RpcProxy`](https://github.com/igor53627/2d/blob/f646a0be630bd7feaf98263f44a73c3fd04d05c6/lib/chain/agent_gateway/rpc_proxy.ex) module:
 
 ```
 eth_chainId, eth_blockNumber, eth_getBalance,
 eth_getTransactionByHash, eth_getTransactionReceipt, eth_getBlockByNumber
 ```
 
-Anything else is rejected with a JSON-RPC error carrying the allowlist in the message. There is no `eth_sendRawTransaction`, no `eth_call` to a write entry point, no way to submit a state-changing transaction through `/rpc`. Agent writes — when they ship — go through dedicated endpoints that route through the enclave signer, never raw RPC. Batches are capped at 100 requests and 64 KB encoded, so a single agent cannot pin a connection with an oversized batch.
+Any other method is rejected with a JSON-RPC error that includes the allowlist. There is no `eth_sendRawTransaction`, no `eth_call` against a write entry point, and no way to submit a state-changing transaction through `/rpc`. When agent writes are added, they will go through dedicated endpoints routed through the enclave signer, never raw RPC. Batches are capped at 100 requests and 64 KB on the wire, so one agent cannot hold a connection open with an oversized batch.
 
-A discovery request is the canonical first call:
+A discovery request is the recommended first call:
 
 ```bash
 curl -s -H "Authorization: Bearer $AGENT_TOKEN" \
      http://localhost:4000/agent/v1/network | jq .
 ```
 
-The response names the chain (id `11565`, native token USDC at 6 decimals, latest block), the calling agent (`agent_id`, `assigned_wallet`, capabilities), the RPC allowlist, and the live rate-limit envelope. `/network` is the contract: an agent that reads it can adapt to the exact methods and limits in effect without hardcoded assumptions.
+The response describes the chain (id `11565`, native token USDC with 6 decimals, latest block), the calling agent (`agent_id`, `assigned_wallet`, capabilities), the RPC allowlist, and the current rate limits. Treat `/network` as the contract: an agent that reads it can adapt to the exact methods and limits in force, without hardcoding them.
 
-One deliberate asymmetry. `/balance` returns the assigned wallet's balance only. `eth_getBalance` inside `/rpc` accepts an arbitrary address. Read-only network-wide inspection — any address's balance, any confirmed transaction's receipt — is a read operation, and a `:read`-capable agent may do it. State changes are not.
+One deliberate asymmetry. `/balance` returns only the assigned wallet's balance. `eth_getBalance` inside `/rpc` accepts any address. Read-only inspection of the whole network (any address's balance, any confirmed transaction's receipt) is a read operation, and a `:read`-capable agent may perform it. State changes are not.
 
 ## Authorization: token, capability, rate limit
 
-Every gateway request authenticates against an **agent identity**: a row carrying a bearer token, an `assigned_wallet`, an `enabled` flag, and a set of **capabilities**. Capabilities are a closed enum — today only `:read`, with `:faucet` and `:transfer` reserved for the write surface that is not yet reachable over HTTP. Asking for an unknown capability is a changeset error at provisioning time, not a silent drop.
+Every gateway request authenticates against an **agent identity**: a database row holding a bearer token, an `assigned_wallet`, an `enabled` flag, and a set of **capabilities**. Capabilities form a closed enum. Today the only one is `:read`; `:faucet` and `:transfer` are reserved for the write surface, which is not reachable over HTTP yet. Requesting an unknown capability is rejected as a changeset error at provisioning time, not silently ignored.
 
-The authentication plug ([`AgentAuth`](https://github.com/igor53627/2d/blob/f646a0be630bd7feaf98263f44a73c3fd04d05c6/lib/chain_web/plugs/agent_auth.ex)) is fail-closed. A request is accepted only if the token verifies against a non-revoked, enabled identity that holds the capability the route demands; anything else — bad token, revoked token, disabled identity, or missing capability — returns a generic authentication failure. The error shape is identical across all failure causes so an attacker cannot probe which check failed. A gateway switched off returns a distinct `404` (see the master switch below), not an authentication failure.
+The authentication plug ([`AgentAuth`](https://github.com/igor53627/2d/blob/f646a0be630bd7feaf98263f44a73c3fd04d05c6/lib/chain_web/plugs/agent_auth.ex)) is fail-closed. A request is accepted only if the token verifies against a non-revoked, enabled identity that holds the capability the route requires. Any other outcome (bad token, revoked token, disabled identity, missing capability) returns the same generic authentication failure. The error shape is identical across all causes, so an attacker cannot tell which check failed. A gateway that has been switched off returns a separate `404` (see the master switch below), not an authentication failure.
 
-Rate limiting is layered to match two different abuse shapes, implemented as an ETS sliding window in [`AgentRateLimit`](https://github.com/igor53627/2d/blob/f646a0be630bd7feaf98263f44a73c3fd04d05c6/lib/chain_web/plugs/agent_rate_limit.ex):
+Rate limiting has two layers, each shaped to a different kind of abuse. Both are implemented as an ETS sliding window in [`AgentRateLimit`](https://github.com/igor53627/2d/blob/f646a0be630bd7feaf98263f44a73c3fd04d05c6/lib/chain_web/plugs/agent_rate_limit.ex):
 
-- **Pre-authentication, per IP — 60 authentication failures per 60 seconds.** This is the token-brute-force defense. Only failed authentications are counted; a legitimate client making many requests after a single successful auth is not penalized.
-- **Post-authentication, per agent — 600 requests per 60 seconds.** This is the runaway-client defense. It bounds how fast a single identity can drive the read surface, regardless of how many IPs it comes from.
+- **Pre-authentication, per IP: 60 authentication failures per 60 seconds.** Defends against token brute force. Only failed authentications are counted, so a legitimate client making many requests after one successful auth is not penalized.
+- **Post-authentication, per agent: 600 requests per 60 seconds.** Bounds a runaway client. It limits how fast a single identity can drive the read surface, regardless of how many IPs it comes from.
 
-Both layers return standard `429` responses. The pre-auth bucket is keyed on the originating IP, which means that behind an L7 reverse proxy the gateway must be told the proxy CIDR allowlist (`AGENT_TRUSTED_PROXIES`); without it, every request appears to come from the proxy's address and the pre-auth limit collapses to one shared bucket. This is the same proxy/CIDR reasoning the bridge operator endpoint uses, kept on a separate environment variable for a separate surface. The `localhost` curl examples above are illustrative; production must terminate TLS in front of the gateway — a bearer token sent over plaintext HTTP is interceptable, which would undercut the trust model below.
+Both layers return standard `429` responses. The pre-auth bucket is keyed by originating IP, so behind an L7 reverse proxy the gateway must be told the proxy's CIDR allowlist (`AGENT_TRUSTED_PROXIES`). Without it, every request looks like it comes from the proxy's address, and the pre-auth limit collapses into one shared bucket. This is the same proxy/CIDR reasoning the bridge operator endpoint uses; the two sit on separate environment variables for separate surfaces. The `localhost` curl examples above are illustrative. In production, terminate TLS in front of the gateway: a bearer token sent over plaintext HTTP can be intercepted, which would undermine the trust model described below.
 
-The whole gateway has a master switch. `AGENT_GATEWAY_ENABLED` unset (or anything other than the literal `"true"`) makes the endpoints return `404` and the background workers not start. The default is off.
+The whole gateway has a master switch. If `AGENT_GATEWAY_ENABLED` is unset or anything other than the literal `"true"`, the endpoints return `404` and the background workers do not start. The default is off.
 
 ## The assigned wallet and the 2d-hsm enclave
 
-Each agent identity has exactly one `assigned_wallet`: a 20-byte EVM address, derived the same way every 2D address is (see [Addresses](../addresses/)). What makes it an *assigned* wallet is that its private key is generated and held by the **2d-hsm enclave**, a secp256k1 signer running inside a confidential VM — a separate signer from the bridge operator's NetHSM appliance documented in [HSM topology](../hsm-topology/). The agent never sees the key. The gateway never sees the key. The key exists only inside the enclave.
+Each agent identity has exactly one `assigned_wallet`: a 20-byte EVM address, derived the same way as every other 2D address (see [Addresses](../addresses/)). What makes it *assigned* is that its private key is generated and held by the **2d-hsm enclave**, a secp256k1 signer running inside a confidential VM. This is a separate signer from the bridge operator's NetHSM appliance described in [HSM topology](../hsm-topology/). The agent never sees the key. The gateway never sees the key. The key exists only inside the enclave.
 
-The enclave is a small Rust program that speaks a CBOR-over-framing protocol over a Unix-domain socket. In production the gateway connects to a host-side socket (`AGENT_SIGNER_2D_HSM_ENDPOINT`, a `unix://` path); a host-side proxy terminates the enclave's vsock transport. The gateway pins the connection to the `agent_gateway` profile and rejects any other. The protocol carries a **capability** object for every privileged operation, domain-separated under `2d-hsm/agent-cap/v1`, and the enclave enforces authority tiers on its side: generating new keys and exporting encrypted backups are admin-tier operations; restoring a backup is recovery-tier; financial scope (treasury configuration) is constrained to be enclave-bound. Fleet-wide spend authority is refused by construction — there is no capability shape that authorizes it.
+The enclave is a small Rust program that speaks a CBOR-over-framing protocol over a Unix-domain socket. In production the gateway connects to a host-side socket (`AGENT_SIGNER_2D_HSM_ENDPOINT`, a `unix://` path); a host-side proxy terminates the enclave's vsock transport. The gateway pins the connection to the `agent_gateway` profile and rejects any other. The protocol carries a **capability** object for every privileged operation, domain-separated under `2d-hsm/agent-cap/v1`. The enclave enforces authority tiers on its side: generating new keys and exporting encrypted backups are admin-tier operations, restoring a backup is recovery-tier, and financial scope (treasury configuration) is constrained to be enclave-bound. Fleet-wide spend authority is refused by construction: no capability shape authorizes it.
 
-Assigned wallets come from a **transfer-key pool**. The enclave generates keys in batches, each batch is exported to encrypted backup and verified before it becomes available, and provisioning claims one available key per new identity. The claim is a single transaction in [`IdentityProvisioner`](https://github.com/igor53627/2d/blob/f646a0be630bd7feaf98263f44a73c3fd04d05c6/lib/chain/agent_gateway/identity_provisioner.ex):
+Assigned wallets come from a **transfer-key pool**. The enclave generates keys in batches; each batch is exported to encrypted backup and verified before it becomes available. Provisioning claims one available key per new identity in a single transaction in [`IdentityProvisioner`](https://github.com/igor53627/2d/blob/f646a0be630bd7feaf98263f44a73c3fd04d05c6/lib/chain/agent_gateway/identity_provisioner.ex):
 
 ```elixir
 SELECT … FOR UPDATE OF k SKIP LOCKED LIMIT 1
 ```
 
-Two concurrent provisionings therefore claim distinct keys, never the same row. The identity is inserted with `assigned_wallet` and `agent_transfer_key_ref` (a 64-character hex handle into the enclave's keystore) taken from the claimed key, and the key is flipped to `assigned` in the same transaction. An empty pool returns `:agent_key_pool_exhausted`; a pool whose rows are all locked by in-flight claims returns `:agent_key_pool_busy`. In neither case is an identity created. Production identities are provisioned only through this path — there is no HTTP endpoint that creates them, and hand-writing rows is rejected by the assignment invariant.
+So two concurrent provisionings always claim distinct keys, never the same row. The identity is inserted with `assigned_wallet` and `agent_transfer_key_ref` (a 64-character hex handle into the enclave's keystore) taken from the claimed key, and the key is flipped to `assigned` in the same transaction. An empty pool returns `:agent_key_pool_exhausted`; a pool whose rows are all locked by in-flight claims returns `:agent_key_pool_busy`. In neither case is an identity created. Production identities are provisioned only through this path. There is no HTTP endpoint that creates them, and hand-writing rows is rejected by the assignment invariant.
 
-The pool is kept warm by a `RefillWorker` that tops it up toward a configured target, a `BatchSweeper` that fails batches stuck in an intermediate backup state so their inputs are reconciled, and a `BackupSink` that writes each batch through a temp file, atomic rename, and a re-read SHA-256 verification before the batch advances. The key material never travels without an encrypted-backup envelope and a verified second copy.
+The pool is kept warm by a `RefillWorker` that tops it up toward a configured target, a `BatchSweeper` that fails batches stuck in an intermediate backup state so their inputs get reconciled, and a `BackupSink` that writes each batch through a temp file, an atomic rename, and a re-read SHA-256 check before the batch advances. Key material never moves without an encrypted-backup envelope and a verified second copy.
 
 ## Proof of possession
 
-A bearer token on its own is a bearer of all the agent's authority — whoever steals it impersonates the agent until it is revoked. The gateway pairs the token with a cryptographic check that the enclave actually holds the private key behind the assigned wallet. This is the **identity proof**: a proof-of-possession signature the enclave produces and the gateway verifies on a re-verification schedule.
+A bearer token on its own carries all of the agent's authority: whoever steals it can act as the agent until it is revoked. The gateway pairs the token with a cryptographic check that the enclave really holds the private key behind the assigned wallet. This is the **identity proof**, a proof-of-possession signature the enclave produces and the gateway verifies on a schedule.
 
-The signed preimage is domain-separated to prevent it from ever being a valid transaction or a valid signature for any other purpose. It is built under the **EIP-191 `0x19` signed-data prefix** (the byte EIP-2718 deliberately leaves unassigned, to keep it disjoint from typed transactions), with the label `2d-hsm/agent-identity-proof/v1`, and binds four fields:
+The signed preimage is domain-separated so it can never be a valid transaction or a valid signature for any other purpose. It is built under the **EIP-191 `0x19` signed-data prefix** (the byte EIP-2718 deliberately leaves unassigned, to keep it disjoint from typed transactions), with the label `2d-hsm/agent-identity-proof/v1`, and binds four fields:
 
 - the deployment **chain id** (`11565`),
 - an **environment identifier** naming the deployment the enclave keystore was built for,
 - the wallet's **uncompressed public key** (65-byte SEC1, verified on-curve),
 - and the **address** (20 bytes), which must match the address derived from the public key.
 
-The enclave signs the `keccak256` preimage with secp256k1 under EIP-2 low-S. The verifier recovers the address from the signature and checks it against the public key; a proof that does not verify against the stored key is rejected. The full construction lives in [`IdentityProof`](https://github.com/igor53627/2d/blob/f646a0be630bd7feaf98263f44a73c3fd04d05c6/lib/chain/agent_gateway/signer_protocol/identity_proof.ex).
+The enclave signs the `keccak256` preimage with secp256k1 under EIP-2 low-S. The verifier recovers the address from the signature and compares it to the public key; a proof that does not verify against the stored key is rejected. The full construction is in [`IdentityProof`](https://github.com/igor53627/2d/blob/f646a0be630bd7feaf98263f44a73c3fd04d05c6/lib/chain/agent_gateway/signer_protocol/identity_proof.ex).
 
-What the proof establishes is key custody, not caller identity. It runs on a re-verification schedule, not on every request, so it does not stop a stolen bearer token from authorizing reads until the operator revokes the token. What it prevents is different: no party other than the enclave can make the gateway believe a wallet's key is still healthy. The token authorizes reads; only the enclave can attest that the key behind those reads is still the one the operator provisioned.
+What the proof establishes is key custody, not caller identity. It runs on a schedule, not on every request, so it does not stop a stolen bearer token from authorizing reads until the operator revokes the token. What it does prevent is different: no party except the enclave can make the gateway believe a wallet's key is still healthy. The token authorizes reads; only the enclave can attest that the key behind those reads is still the one the operator provisioned.
 
 ## Live verification and the sweep
 
-The gateway ships **dormant by default**. With `AGENT_SIGNER_LIVE_IDENTITY_ENABLED` unset, identity calls go to a stub that returns `:agent_signer_protocol_unavailable` for every request. This is deliberate: it lets the read surface and the background workers run against an unwired signer without disabling anything. The IdentitySweep runs in both dormant and live modes; under the dormant stub every identity resolves to the `:terminal_unknown` class (below), which leaves wallets intact — which is why dormancy disables nothing.
+The gateway ships **dormant by default**. With `AGENT_SIGNER_LIVE_IDENTITY_ENABLED` unset, identity calls go to a stub that returns `:agent_signer_protocol_unavailable` for every request. This is deliberate: it lets the read surface and the background workers run against an unwired signer without disabling anything. The IdentitySweep runs in both dormant and live modes. Under the dormant stub every identity falls into the `:terminal_unknown` class (below), which leaves wallets intact, which is why dormancy disables nothing.
 
 Flipping to live selects `SignerClient.Live`, which performs the real proof-of-possession exchange. The flip is gated by a mandatory canary that runs the same configuration the node will run under and reports whether the enclave verifies one assigned key:
 
-- exit `0` — identity verified, configuration matches the deployment, safe to flip;
-- exit `1` — no candidate key to probe (populate the key first);
-- exit `2` — do **not** flip; either a configuration or wire mismatch, or an inconclusive transient.
+- exit `0`: identity verified, configuration matches the deployment, safe to flip;
+- exit `1`: no candidate key to probe (populate the key first);
+- exit `2`: do **not** flip. Either a configuration or wire mismatch, or an inconclusive transient.
 
-The canary is a probe: it makes no database mutation, so even a mismatch verdict leaves the probed key assigned. The gate exists because the two interesting failure modes are both configuration-driven. An unset chain id or environment identifier under Live turns into a terminal-config finding every sweep tick — noise that verifies nothing. Worse, a *wrong-but-in-range* chain id classifies as destructive: the signed proof will not verify, and the next sweep would disable every stale assigned wallet. That outcome is fail-closed (keys disabled, not drained; recovery is fix-the-config and re-enable), but operationally severe, which is why the canary is mandatory.
+The canary is a probe: it makes no database mutation, so even a mismatch verdict leaves the probed key assigned. The gate exists because the two failure modes that matter are both configuration-driven. An unset chain id or environment identifier under Live turns into a terminal-config finding on every sweep tick: noise that verifies nothing. Worse, a *wrong-but-in-range* chain id classifies as destructive. The signed proof will not verify, and the next sweep would disable every stale assigned wallet. That outcome is fail-closed (keys disabled, not drained; recovery is to fix the config and re-enable), but operationally severe, which is why the canary is mandatory.
 
-Once live, an `IdentitySweep` running on one designated instance periodically re-runs the proof for every enabled identity whose last verification is older than the configured window. Every outcome is classified, and only one class mutates state:
+Once live, an `IdentitySweep` running on one designated instance periodically re-runs the proof for every enabled identity whose last verification is older than the configured window. Every outcome is classified, and only one class changes state:
 
 | Class | What it means | Action |
 |---|---|---|
-| `:destructive` | The key no longer verifies against the stored identity — key-ref mismatch, pubkey/address mismatch, a failed proof | The key is **disabled**. No retry. |
+| `:destructive` | The key no longer verifies against the stored identity: key-ref mismatch, pubkey/address mismatch, a failed proof | The key is **disabled**. No retry. |
 | `:retryable` | Transient transport failure reaching the enclave | Finding recorded; wallet intact; retried next tick. |
 | `:terminal_config` / `:terminal_wire` / `:terminal_agent` / `:terminal_malformed` | Misconfiguration, protocol mismatch, malformed response | Finding recorded every tick; wallet intact. |
 | `:terminal_unknown` | Unexpected raise, exit, or throw; the dormant stub's unavailable response | Finding recorded; wallet intact. |
 
-`destructive` is the only class that disables a wallet. Every other class preserves the pre-flip posture: a transient outage or an unwired signer must not take agents offline. The disable is idempotent — a repeat sweep over an already-disabled key is a no-op — and recovery is fix-the-cause then re-enable through the operator write path.
+`:destructive` is the only class that disables a wallet. Every other class preserves the pre-flip posture: a transient outage or an unwired signer must not take agents offline. The disable is idempotent (a repeat sweep over an already-disabled key is a no-op), and recovery is to fix the cause and re-enable the key through the operator write path.
 
 ## Audit and idempotency scaffolding
 
-The gateway records every agent write action as an `agent_actions` row before signing, keyed by a client-supplied idempotency key. The state machine is `requested → signed → submitted → confirmed`, with `rejected`, `failed`, and `expired` as terminal off-ramps. A second request with the same idempotency key returns the original result rather than creating a new action: a replay after `submitted` does not re-submit, and a replay after `failed` does not auto-retry. This machinery exists today, but no write endpoint flows through it yet — it is scaffolding for the surface below.
+The gateway records every agent write action as an `agent_actions` row before signing, keyed by a client-supplied idempotency key. The state machine runs `requested → signed → submitted → confirmed`, with `rejected`, `failed`, and `expired` as terminal exits. A second request with the same idempotency key returns the original result instead of creating a new action: a replay after `submitted` does not re-submit, and a replay after `failed` does not auto-retry. This machinery exists today, but no write endpoint flows through it yet. It is scaffolding for the surface described below.
 
 ## Trust model summary
 
-The agent gateway's safety rests on three separable properties:
+The gateway's safety rests on three separable properties:
 
-1. **The agent holds a token, not a key.** Today that token authorizes reads only; when write endpoints ship, every state-changing signature will be produced inside the 2d-hsm enclave under operator-defined capability policy, never by the agent. Compromise of the agent process yields a bearer token valid only for the operations that token authorizes, and only until it is revoked. Revocation is a per-identity database flag checked on every request, so a revoked token stops authorizing on the next request after the operator sets it — propagation is one request, not a cache TTL.
-2. **The token is paired with a proof of possession.** Re-verification re-establishes that the enclave still holds the key behind the assigned wallet. A token on its own cannot re-establish that, and a mismatch disables the wallet fail-closed.
-3. **The read surface is closed and bounded.** A fixed method allowlist, a 64 KB / 100-request batch cap, and a dual-layer rate limit bound what any single agent can do to the node, and the gateway defaults to off.
+1. **The agent holds a token, not a key.** Today that token only authorizes reads; when write endpoints ship, every state-changing signature will be produced inside the 2d-hsm enclave under operator-defined capability policy, never by the agent. Compromising the agent process yields a bearer token valid only for the operations that token allows, and only until it is revoked. Revocation is a per-identity database flag checked on every request, so a revoked token stops working on the next request after the operator sets it. Propagation is one request, not a cache TTL.
+2. **The token is paired with a proof of possession.** Re-verification confirms that the enclave still holds the key behind the assigned wallet. A token on its own cannot confirm this, and a mismatch disables the wallet fail-closed.
+3. **The read surface is closed and bounded.** A fixed method allowlist, a 64 KB / 100-request batch cap, and a two-layer rate limit bound what any single agent can do to the node, and the gateway defaults to off.
 
-The keys live in the same hardware/TEE substrate family as the rest of the signing infrastructure; the assigned-wallet keys occupy their own namespace in the 2d-hsm keystore, distinct from the bridge operator's keys. The on-chain rules treat an assigned wallet like any other account — the [security model](../security/) and [state-root](../state-roots/) guarantees apply to it unchanged.
+The keys live on the same hardware/TEE substrate family as the rest of the signing infrastructure. The assigned-wallet keys occupy their own namespace in the 2d-hsm keystore, separate from the bridge operator's keys. On-chain rules treat an assigned wallet like any other account: the [security model](../security/) and [state-root](../state-roots/) guarantees apply to it unchanged.
 
 ## What is not available yet
 
-The following surfaces are explicitly **not** shipped and not documented as available:
+The following surfaces are explicitly **not** shipped and are not documented as available:
 
 - **Faucet write endpoint** (`POST /agent/v1/faucet`). The treasury-key and funding-gate scaffolding exist, but there is no HTTP write path. (The chain's separate legacy faucet at `GET /faucet` is a different, unauthenticated surface; do not confuse the two.)
 - **Transfer write endpoint** (`POST /agent/v1/transfer`).
-- **Restore-drill execution.** The backup, baseline, and audit-event tables exist, and a `RestoreAuditMonitor` continuously exports a redacted findings snapshot plus a SHA-256 digest for disaster-recovery evidence, but the production key-restore ceremony is not yet wired. Provenance enforcement stays off until it is.
+- **Restore-drill execution.** The backup, baseline, and audit-event tables exist, and a `RestoreAuditMonitor` continuously exports a redacted findings snapshot plus a SHA-256 digest for disaster-recovery evidence, but the production key-restore ceremony is not wired yet. Provenance enforcement stays off until it is.
 
 This section is here on purpose. A doc that advertised an unimplemented endpoint as available would be worse than no doc.
 
 ## Where this fits in the rest of the chain
 
-The gateway is a consumer-facing surface layered on top of the same chain the rest of the documentation describes. The [addresses](../addresses/) article explains the 20-byte account an assigned wallet resolves to. The [security model](../security/) covers the trust boundaries the gateway sits behind. The [HSM topology](../hsm-topology/) article covers the bridge operator's separate signer path — the 2d-hsm enclave the gateway uses is a distinct signer in the same hardware family, and the long-term direction for that enclave is the [PQ signing in the TEE](../pq-signing-tee/) design.
+The gateway is a consumer-facing surface layered on the same chain the rest of the documentation describes. The [addresses](../addresses/) article explains the 20-byte account an assigned wallet resolves to. The [security model](../security/) covers the trust boundaries the gateway sits behind. The [HSM topology](../hsm-topology/) article covers the bridge operator's separate signer path; the 2d-hsm enclave the gateway uses is a distinct signer in the same hardware family, and the long-term direction for that enclave is the [PQ signing in the TEE](../pq-signing-tee/) design.
