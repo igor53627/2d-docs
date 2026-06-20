@@ -75,14 +75,14 @@ A successful bridge signing request traverses every bridge host in order:
 ```mermaid
 sequenceDiagram
   autonumber
-  box rgba(217, 119, 6, 0.1) Host A — orchestrator
+  box rgba(217,119,6,0.1) Host A — orchestrator
     participant Orch as Elixir bridge process
   end
-  box rgba(29, 78, 216, 0.1) Host B — SEV-SNP
+  box rgba(29,78,216,0.1) Host B — SEV-SNP
     participant Vault as Vault Transit
     participant OPA as OPA sidecar
   end
-  box rgba(29, 78, 216, 0.1) Host C — SEV-SNP
+  box rgba(29,78,216,0.1) Host C — SEV-SNP
     participant HSM as NetHSM (bridge namespace)
   end
   Orch->>Vault: sign request (calldata + selector + target)
