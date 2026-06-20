@@ -38,9 +38,9 @@ On first boot with an empty database:
 
 1. The syncer connects to the upstream node via Erlang distribution.
 2. It asks the upstream node for its current tip, then fetches blocks in batches from its own last known block, verifying each one (catch-up).
-3. Once caught up, it subscribes to the live block feed and processes blocks as they arrive.
-4. For every subsequent block, the verifier replays all transactions, recomputes the state root and block hash, and commits only if both match.
-5. Once caught up, the verifier processes live blocks as they arrive. Blocks already committed during catch-up are skipped by number.
+3. Once caught up, it subscribes to the live block feed.
+4. For every subsequent live block, the verifier replays all transactions, recomputes the state root and block hash, and commits only if both match.
+5. Blocks already committed during catch-up are skipped by number.
 
 If the upstream node is unreachable at boot, the syncer retries every 5 seconds.
 
