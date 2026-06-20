@@ -101,6 +101,13 @@ export default defineConfig({
 							slug: 'architecture/pq-signing-tee',
 						},
 						{
+							label: 'Agent Gateway (keyless agent access)',
+							translations: {
+								ru: 'Agent Gateway (бесключевой доступ агентов)',
+							},
+							slug: 'architecture/agent-gateway',
+						},
+						{
 							label: 'Running a verifier',
 							translations: {
 								ru: 'Запуск верификатора',
