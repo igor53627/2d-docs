@@ -5,7 +5,7 @@ description: How the 2D block producer holds its ML-DSA-65 key inside a minimal 
 
 The [bridge operator HSM topology](../hsm-topology/) explains where **bridge** operator keys live: orchestrator, Vault + OPA, and NetHSM namespaces on three hosts. The **block producer** uses a separate long-term post-quantum key for block headers and for on-chain `AuthorizationTicket`s (producer recovery and hard-fork activation). That producer path is what the [**2d-hsm**](https://github.com/igor53627/2d-hsm) reference enclave implements: a small PQ signing service inside AMD SEV-SNP (or Nitro Enclaves), with a length-prefixed CBOR protocol over vsock to the untrusted 2D host.
 
-This page is the architecture overview for that service. The normative wire format and security invariants live in the repository spec [`vsock-api-wire-format-spec-draft.md`](https://github.com/igor53627/2d-hsm/blob/main/backlog/docs/vsock-api-wire-format-spec-draft.md).
+This page is the architecture overview for that service. The normative vsock wire format lives in [`vsock-api-wire-format-spec-draft.md`](https://github.com/igor53627/2d-hsm/blob/main/backlog/docs/vsock-api-wire-format-spec-draft.md); the normative `AuthorizationTicket` ABI, signed preimage, and `contextHash` rules live in [`authorization-tickets-precompile-spec-draft.md`](https://github.com/igor53627/2d-hsm/blob/main/backlog/docs/authorization-tickets-precompile-spec-draft.md).
 
 ## What the enclave is responsible for
 
@@ -86,6 +86,10 @@ sequenceDiagram
 ```
 
 Hard-fork tickets must use `handle_sign_authorization_ticket_with_state` after a valid arm. Recovery tickets (type 0) may use the stateless path during bootstrap, but `pq_pubkey` in the ticket must still match the installed signer when a real key is active.
+
+Hard-fork authorization is scoped to the producer epoch, not just to the PQ key. A ticket signed by producer A in an earlier epoch must not be replayable after the chain rotates A → B → A. The on-chain/precompile side therefore recomputes the hard-fork `contextHash` from the current producer's key and activation height and rejects a mismatch. This page intentionally stays at the architecture level; the exact byte-level preimage is the `2d-hsm` AuthorizationTicket spec linked above.
+
+Producer recovery is also not live-by-default in the native chain yet. The finalized-tip downtime gate exists in the `2d` precompile code, but `record_finalized_tip/2` is not wired into the block executor's finality path. Until that integration lands, native `PRODUCER_RECOVERY` acceptance remains fail-closed (`no_finalized_tip`) rather than advertising recovery as an active production feature. The Solidity reference models this with an explicit relay/height stand-in, not the final native source of truth.
 
 ## Reference implementation status
 

@@ -5,7 +5,7 @@ description: Как производитель блоков 2D хранит кл
 
 В [HSM-топологии оператора моста](../hsm-topology/) описано размещение **мостовых** ключей: оркестратор, Vault + OPA и пространства имён NetHSM на трёх хостах. У **производителя блоков** отдельный долгоживущий постквантовый ключ для заголовков блоков и для on-chain `AuthorizationTicket` (recovery производителя и активация hard fork). Этот путь реализует эталонный анклав [**2d-hsm**](https://github.com/igor53627/2d-hsm): компактный PQ signing service внутри AMD SEV-SNP (или Nitro Enclaves) с CBOR-протоколом поверх vsock к недоверенному хосту 2D.
 
-Здесь — обзор архитектуры сервиса. Нормативный wire format и инварианты безопасности — в [`vsock-api-wire-format-spec-draft.md`](https://github.com/igor53627/2d-hsm/blob/main/backlog/docs/vsock-api-wire-format-spec-draft.md) в репозитории.
+Здесь — обзор архитектуры сервиса. Нормативный vsock wire format описан в [`vsock-api-wire-format-spec-draft.md`](https://github.com/igor53627/2d-hsm/blob/main/backlog/docs/vsock-api-wire-format-spec-draft.md); нормативный ABI `AuthorizationTicket`, подписываемый preimage и правила `contextHash` — в [`authorization-tickets-precompile-spec-draft.md`](https://github.com/igor53627/2d-hsm/blob/main/backlog/docs/authorization-tickets-precompile-spec-draft.md).
 
 ## Зона ответственности анклава
 
@@ -86,6 +86,10 @@ sequenceDiagram
 ```
 
 Hard-fork тикеты — через `handle_sign_authorization_ticket_with_state` после валидного arm. Recovery (type 0) может идти stateless path при bootstrap, но `pq_pubkey` в тикете должен совпадать с ключом анклава, если signer установлен.
+
+Авторизация hard fork привязана к эпохе производителя, а не только к PQ-ключу. Тикет, подписанный производителем A в старой эпохе, не должен быть воспроизводим после ротации A → B → A. Поэтому on-chain/precompile сторона пересчитывает hard-fork `contextHash` из текущего ключа производителя и высоты его активации и отклоняет несовпадение. Эта страница остаётся архитектурным обзором; точный byte-level preimage задаёт спецификация `AuthorizationTicket` в репозитории `2d-hsm`, ссылка выше.
+
+Recovery производителя в native chain также ещё не является production-active функцией по умолчанию. Finalized-tip downtime gate уже есть в коде precompile `2d`, но `record_finalized_tip/2` пока не подключён к finality path исполнителя блоков. До этой интеграции native `PRODUCER_RECOVERY` остаётся fail-closed (`no_finalized_tip`), а не рекламируется как активный production recovery. Solidity reference моделирует это явным relay/height stand-in, а не финальным native source of truth.
 
 ## Статус реализации
 
