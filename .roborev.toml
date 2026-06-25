@@ -1,0 +1,13 @@
+# Shared PSE roborev defaults (copy or symlink into repo root as .roborev.toml).
+# See ~/pse/roborev/README.md for 3×3 / 2×3 manual matrices and model rules.
+#
+# Post-commit hook: Codex + gpt-5.5 only. Never set gpt-5.5 as global review_model
+# in ~/.roborev/config.toml — it leaks into gemini/claude-code jobs.
+
+agent = "codex"
+model = "gpt-5.5"
+
+[ci]
+# Vendor diversity for PR CI (2-agent floor). Expand manually with pse-review-3x3.sh.
+agents = ["codex", "gemini"]
+review_types = ["security", "design"]

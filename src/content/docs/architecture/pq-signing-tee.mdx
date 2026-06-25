@@ -66,7 +66,7 @@ All messages use a 4-byte big-endian length prefix, one protocol-version byte, o
 
 **`pq_signing_ready`:** `true` only after `install_sealed_pq_signer` succeeds at enclave boot. Default builds ship with **no** embedded secret key; `SIGN_AUTHORIZATION_TICKET` returns `PqSigningUnavailable` until provisioned. Hosts detect mock-era peers via `pq_signing_ready == false` and 64-byte PQ signatures (dev-only `test-support` + `demo-mock-sign`).
 
-**Sealed key (TASK-1):** Production platform sealing (vTPM, SNP VMPL, etc.) is not implemented yet. The reference crate includes a **v0 XOR + measurement-bound** blob for `cargo test` only; non-test `ml-dsa-65` builds reject install until a real seal format exists.
+**Sealed key (TASK-1):** Production platform sealing uses **seal v1** — ChaCha20Poly1305 AEAD with a measurement-bound key derived from a 32-byte provisioning root via SHA3-256 (`2d-hsm-pq-seal-v1-key` domain). The provisioning root is derived from the SEV-SNP firmware via the `snp-derive-root` boot helper (SNP_GET_DERIVED_KEY ioctl → SHA3-256 domain-separated), written to `/run/twod-hsm/pq-seal-root.bin` at boot, and read by the enclave via the release-safe `platform-root-from-boot-file` feature (fixed path, not a host-settable env var). The v0 XOR format is `#[cfg(test)]`-only; non-test `ml-dsa-65` builds accept v1 and reject v0. The sealed-boot ceremony + snp-derive-root selftest are aya-validated; safety rests on measured boot (the NixOS image + snp-derive-root oneshot are part of the measured SNP launch).
 
 ## Arming and hard-fork gating
 
@@ -98,9 +98,9 @@ The [`impl/rust/enclave-protocol`](https://github.com/igor53627/2d-hsm/tree/main
 - Framing, canonical `ticketHash`, and Solidity cross-check tests
 - `EnclaveState` / arming monotonicity and hard-fork session rules
 - Producer Chain Attestation v1 verification
-- ML-DSA-65 signing with sealed-key install sketch and fail-closed production defaults
+- ML-DSA-65 signing with **seal v1** production key install (ChaCha20Poly1305 AEAD, measurement-bound, SNP-derived root via `snp-derive-root`)
 
-Still deferred: production seal format, live chain-tip refresh between arm and sign, full integer-key CBOR for every command, Elixir host shim, and real vsock transport in deployment.
+Still deferred: live chain-tip refresh between arm and sign (the `RecentChainProof` is verified at arm time but not re-checked per-block), Elixir host shim, and real vsock transport in production deployment.
 
 ## Relation to the bridge HSM topology
 
